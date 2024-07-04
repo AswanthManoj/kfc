@@ -4,10 +4,25 @@
 The KFC Food Ordering Assistant is an low-latency interactive voice assistant designed to streamline the ordering process at KFC.
 
 ```mermaid
-flowchart LR
-    A[Deepgram Speech to Text ] --> B[Llama3-8b on Groq `200-600ms`]
-    B --> C[Deepgram Text to Speech `500-800ms`]
-    A --> D[Threaded disfluency filler audio compensating generation delay]
+flowchart TD
+    start(Voice Listening Starts) --> listen[Wait for User Input]
+    listen -->|End of Utterance| transcribe[Transcribe Speech to Text]
+    transcribe --> agent_call[Send Output to LLM Agent]
+
+    agent_call -->|Tool Call Needed| play_intermediate[Play Intermediate Response]
+    play_intermediate --> tool_call[Invoke Tool]
+    tool_call --> play_response[Play intermediate response]
+    tool_call --> tool_output[Get Tool Output]
+    tool_output --> agent_call
+
+    agent_call -->|No Tool Call Needed| final_response[Generate Final Response]
+    final_response --> tts[Convert Final Response to Speech]
+    tts --> check[Check if Order is Confirmed]
+
+    check -->|Order Not Confirmed| listen[Wait for User Input Again]
+    check -->|Order Confirmed| end_interaction[End Voice Interaction]
+
+    class start,listen,transcribe,agent_call,play_intermediate,tool_call,tool_output,final_response,tts,check,end_interaction classStep;
 ```
 
 ### Installation
@@ -31,11 +46,12 @@ poetry install
 
 4. Set up API keys (one time):
     - Create a `.env` file in the project root folder.
+    - Go to [Assembly ai's website](https://www.assemblyai.com/), login and get an API key paste it inside `.env` file as `ASSEMBLY_API_KEY=<your-api-key>`.
     - Go to [Deepgram's website](https://deepgram.com/), login and get an API key paste it inside `.env` file as `DEEPGRAM_API_KEY=<your-api-key>`.
     - Go to [Groq's website](https://groq.com/), login and get the API key then paste it inside `.env` as `GROQ_API_KEY=<your-api-key>`.
 
 
 3. Run the application:
 ```bash
-poetry run python test.py
+poetry run python kfc_voice_assistant/main.py
 ```

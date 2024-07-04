@@ -1,6 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from utils import ConversationManager
+from test_utils import ConversationManager
 
 load_dotenv()
 
@@ -15,5 +15,5 @@ if __name__ == "__main__":
         llm_model_id=llm_model,
         tts_model_id=tts_model
     )
-    # asyncio.run(manager.main()) # For automatic listen and response
+    # asyncio.run(manager.main()) # For automatic listening and response
     asyncio.run(manager.main2())

@@ -119,7 +119,7 @@ class SpeechToText:
             return
 
 class TextToSpeech:
-    def __init__(self, model_name: str, sounds_folder: str="disfluencies") -> None:
+    def __init__(self, model_name: str, disfluencies_folder: str="disfluencies", initial_response_folder: str="responses/initial_responses") -> None:
         pygame.mixer.init()
         self.model_name = model_name
         self.api_key = os.getenv("DEEPGRAM_API_KEY")
@@ -147,8 +147,8 @@ class TextToSpeech:
             "Uhm.. Hi... welcome to Kentucky Fried Chicken and are you ready to order something, or anything you prefer to have?": "init_6.mp3"
         }
         
-        self.__load_intro__(sounds_folder)
-        self.__load_disfluencies__(sounds_folder)
+        self.__load_intro__(initial_response_folder)
+        self.__load_disfluencies__(disfluencies_folder)
     
     def __load_disfluencies__(self, folder: str):
         self.disfluency_sounds = {}
@@ -157,7 +157,7 @@ class TextToSpeech:
             if os.path.isfile(path):
                 self.disfluency_sounds[filler] = pygame.mixer.Sound(path)
             else:
-                print(f"File {filename} not found. Skipping {filler}.")
+                print(f"File {path} not found. Skipping {filler}.")
 
     def __load_intro__(self, folder: str):
         self.intro_sounds = {}
@@ -166,7 +166,7 @@ class TextToSpeech:
             if os.path.isfile(path):
                 self.intro_sounds[text] = pygame.mixer.Sound(path)
             else:
-                print(f"File {filename} not found.")
+                print(f"File {path} not found.")
         
     def play_disfluent_filler(self):
         if random.choice([True, True]):
@@ -231,6 +231,7 @@ class TextToSpeech:
         except Exception as e:
             print(f"Exception in speak: {e}")
             return None
+      
               
 class LanguageModel:
     def __init__(self, model_name: str) -> None:
