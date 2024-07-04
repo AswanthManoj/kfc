@@ -1,10 +1,11 @@
-from config import LLM_MODEL, TTS_MODEL
-from agent import AudioManager, OrderCart, Item
+from config import TTS_MODEL
+from agent import AudioManager, OrderCart, Item, SocketManager
 
 
 agent = None
 order_cart = None
 audio_manager = None
+socket_manager = None
 
 def get_audio_manager():
     global audio_manager
@@ -17,11 +18,22 @@ def get_audio_manager():
         )
     return audio_manager
 
+def get_socket_manager():
+    global socket_manager
+    if socket_manager is None:
+        socket_manager = SocketManager(
+            port=8000, 
+            host="localhost", 
+            entry="ws_receive"
+        )
+    return socket_manager
+
 def get_order_cart():
     global order_cart
     if order_cart is None:
         order_cart = OrderCart(
             audio_manager=get_audio_manager(),
+            socket_manager=get_socket_manager(),
             beverages=[
                 Item(name="Pepsi", price_per_unit=1.99, image_url_path="/images/pepsi.jpg"),
                 Item(name="Iced Tea", price_per_unit=1.79, image_url_path="/images/iced_tea.jpg"),

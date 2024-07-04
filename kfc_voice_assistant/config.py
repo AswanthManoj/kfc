@@ -1,6 +1,8 @@
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
+os.mkdir("downloads", exists=True)
 
 RATE = 16000
 CHANNELS = 1

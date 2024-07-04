@@ -1,9 +1,3 @@
-import os
-import random, time, threading
-from pydub import AudioSegment
-from pydub.playback import play
-
-
 ################################
 # FILE NAMES FOR SOUND EFFECTS #
 ################################

@@ -1,6 +1,8 @@
-import yaml
+import websocket
+import yaml, json
 import numpy as np
 from io import BytesIO
+import sounddevice as sd
 import assemblyai as aai
 from pydub import AudioSegment
 from pydub.playback import play
@@ -8,13 +10,13 @@ from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
 from typing import List, Dict, Optional, Tuple
-from utils import MicrophoneStream, Item, Order
 from config import RATE, RECORD_SECONDS, CHANNELS
 import requests, os, queue, random, time, threading
 from langchain_core.messages import ( 
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamTranscript
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
 
 
@@ -57,6 +59,29 @@ class Agent:
                 tool_call_identified = False
         return response.content, is_order_confirmed
     
+class SocketManager:
+    def __init__(self, host: str="localhost", port: int=8000, entry: str="ws_receive"):
+        self.host = host
+        self.port = port
+        self.entry = entry
+        self.url = f"ws://{host}:{port}/{entry}"
+        self.ws = None
+    
+    def connect(self):
+        try:
+            self.ws = websocket.create_connection(self.url)
+            print("Connected to WebSocket server.")
+        except Exception as e:
+            print(f"Failed to connect: {e}")
+    
+    def send_message(self, message: dict):
+        if not self.ws:
+            self.connect()
+        try:
+            self.ws.send(json.dumps(message))
+        except Exception as e:
+            print(f"Failed to send message: {e}")
+
 class AudioManager:
     def __init__(
         self, 
@@ -159,12 +184,13 @@ class AudioManager:
             return False
 
 class ConversationManager:
-    def __init__(self, audio_manager: AudioManager, agent: Agent):
+    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, agent: Agent):
         self.agent = agent
         self.transcriber = None
         self.is_speaking = False
         self.microphone_stream = None
         self.audio_manager = audio_manager
+        self.socket_manager = socket_manager
         # self.pause_transcription = threading.Event()
         aai.settings.api_key = os.getenv("ASSEMBLY_API_KEY")
 
@@ -175,10 +201,12 @@ class ConversationManager:
     def on_data(self, transcript: aai.RealtimeTranscript):
         # if self.pause_transcription.is_set():
         #     return
+        self.socket_manager.send_message(StreamTranscript(text=transcript.text))
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
             print("User:", transcript.text)
+            self.socket_manager.send_message(StreamTranscript(text=transcript.text, is_partial=False))
             self.process_response(transcript.text)
 
     def on_error(self, error: aai.RealtimeError):
@@ -201,7 +229,6 @@ class ConversationManager:
         self.microphone_stream.resume()
         # self.pause_transcription.clear()
        
-
     def run(self):
         self.transcriber = aai.RealtimeTranscriber(
             sample_rate=16_000,
@@ -218,20 +245,55 @@ class ConversationManager:
         self.transcriber.close()
         self.microphone_stream.close()
 
+class WakeWordDetector:
+    def __init__(self, model_id: str="openai/whisper-tiny.en", cache_dir: str="downloads") -> None:
+        self.processor = WhisperProcessor.from_pretrained(model_id, cache_dir=cache_dir)
+        self.model = WhisperForConditionalGeneration.from_pretrained(model_id, cache_dir=cache_dir)
+    
+    def detect(self, wake_words: List[str], wait_time: float=1.25) -> bool:
+        print("Listening for wake word...", end="\r")
+        wake_words = [word.lower() for word in wake_words]
+        audio_data = sd.rec(int(wait_time * RATE), samplerate=RATE, channels=CHANNELS)
+        sd.wait()
+        
+        audio_data = audio_data.flatten()
+        audio_data = audio_data.astype(np.float16)
+        if audio_data.max() > 1.0:
+            audio_data = audio_data / 32768.0
+        
+        input_features = self.processor(audio_data, sampling_rate=RATE, return_tensors="pt").input_features
+        predicted_ids = self.model.generate(input_features)
+        transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+
+        if any (wake_word in transcription.strip().lower() for wake_word in wake_words):
+            return True
+        return False
+
 
 
 ###############################
 # ASSISTANT DATA TOOL CLASSES #
 ###############################
 class KFCMenu:
-    def __init__(self, audio_manager: AudioManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
+    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
         self.beverages=beverages
         self.main_dishes=main_dishes
         self.side_dishes=side_dishes
         self.audio_manager = audio_manager
+        self.socket_manager = socket_manager
+        self.stream_data = StreamData(
+            menu=[
+                Menu(menu_type="beverage", items=self.beverages),
+                Menu(menu_type="main_dish", items=self.main_dishes),
+                Menu(menu_type="side_dish", items=self.side_dishes),
+            ]
+        )
     
     def get_main_dishes(self) -> str:
         self.audio_manager.play_intermediate_response("get_main_dishes")
+        stream_data = self.stream_data
+        stream_data.action="get_main_dishes"
+        self.socket_manager.send_message(stream_data.model_dump())
         dishes = []
         for dish in self.main_dishes:
             d = dish.model_dump(exclude=["image_url_path"])
@@ -241,6 +303,9 @@ class KFCMenu:
 
     def get_sides(self) -> str:
         self.audio_manager.play_intermediate_response("get_sides")
+        stream_data = self.stream_data
+        stream_data.action="get_sides"
+        self.socket_manager.send_message(stream_data.model_dump())
         dishes = []
         for dish in self.side_dishes:
             d = dish.model_dump(exclude=["image_url_path"])
@@ -250,6 +315,9 @@ class KFCMenu:
 
     def get_beverages(self) -> str:
         self.audio_manager.play_intermediate_response("get_beverages")
+        stream_data = self.stream_data
+        stream_data.action="get_beverages"
+        self.socket_manager.send_message(stream_data.model_dump())
         beverages = []
         for bev in self.beverages:
             b = bev.model_dump(exclude=["image_url_path"])
@@ -266,8 +334,8 @@ class KFCMenu:
     
 class OrderCart(KFCMenu):
     
-    def __init__(self, audio_manager: AudioManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
-        super().__init__(audio_manager, beverages, main_dishes, side_dishes)
+    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
+        super().__init__(audio_manager, socket_manager, beverages, main_dishes, side_dishes)
         self.orders: List[Order] = []
     
     def add_item(self, item_name: str, quantity: int = 1) -> str:
@@ -289,6 +357,12 @@ class OrderCart(KFCMenu):
         if is_new:
             self.orders.append(Order(name=item_name, price_per_unit=item.price_per_unit, total_quantity=quantity))
         
+        stream_data = self.stream_data
+        stream_data.action="add_item"
+        stream_data.cart = self.orders
+        stream_data.update()
+        self.socket_manager.send_message(stream_data.model_dump())
+        
         return yaml.dump(result)
 
     def remove_item(self, item_name: str, quantity: int = 1, remove_all: bool = False) -> str:
@@ -304,6 +378,13 @@ class OrderCart(KFCMenu):
                     result['action'] = "partially_removed"
                     result['remaining_quantity'] = self.orders[i].total_quantity
                 break
+        
+        stream_data = self.stream_data
+        stream_data.cart = self.orders
+        stream_data.action="remove_item"
+        stream_data.update()
+        self.socket_manager.send_message(stream_data.model_dump())
+            
         return yaml.dump(result)
 
     def modify_quantity(self, item_name: str, new_quantity: int) -> str:
@@ -319,6 +400,13 @@ class OrderCart(KFCMenu):
                     result['action'] = "updated"
                     result['new_quantity'] = new_quantity
                 break
+            
+        stream_data = self.stream_data
+        stream_data.cart = self.orders
+        stream_data.action="modify_quantity"
+        stream_data.update()
+        self.socket_manager.send_message(stream_data.model_dump())
+        
         return yaml.dump(result)
 
     def confirm_order(self) -> str:
@@ -328,6 +416,14 @@ class OrderCart(KFCMenu):
             "message": "Your order has been confirmed.",
             "items": [{"name": order.name, "quantity": order.total_quantity} for order in self.orders]
         }
+        
+        stream_data = self.stream_data
+        stream_data.cart = self.orders
+        stream_data.action="confirm_order"
+        stream_data.update()
+        self.socket_manager.send_message(stream_data.model_dump())
+        
+        self.reset_cart()
         return yaml.dump(confirmation)
 
     def get_cart_contents(self) -> str:
@@ -336,6 +432,13 @@ class OrderCart(KFCMenu):
         for order in self.orders:
             total_price += (order.total_quantity * order.price_per_unit)
             contents.append({"name": order.name, "quantity": order.total_quantity})
+            
+        stream_data = self.stream_data
+        stream_data.cart = self.orders
+        stream_data.action="get_cart_contents"
+        stream_data.update()
+        self.socket_manager.send_message(stream_data.model_dump())    
+            
         if contents:
             return f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}"
         return "The cart is currently empty."
@@ -346,28 +449,7 @@ class OrderCart(KFCMenu):
 
 
 
-# class WakeWordDetector:
-#     def __init__(self, model_id: str="openai/whisper-tiny.en", cache_dir: str="downloads") -> None:
-#         self.processor = WhisperProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-#         self.model = WhisperForConditionalGeneration.from_pretrained(model_id, cache_dir=cache_dir)
-    
-#     def detect(self, wake_words: List[str], wait_time: float=1.25) -> bool:
-#         print("Listening for wake word...")
-#         audio_data = sd.rec(int(wait_time * RATE), samplerate=RATE, channels=CHANNELS)
-#         sd.wait()
-        
-#         audio_data = audio_data.flatten()
-#         audio_data = audio_data.astype(np.float16)
-#         if audio_data.max() > 1.0:
-#             audio_data = audio_data / 32768.0
-        
-#         input_features = self.processor(audio_data, sampling_rate=RATE, return_tensors="pt").input_features
-#         predicted_ids = self.model.generate(input_features)
-#         transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 
-#         if any (wake_word in transcription.strip().lower() for wake_word in wake_words):
-#             return True
-#         return False
             
 
 

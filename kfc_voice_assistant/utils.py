@@ -1,5 +1,6 @@
 import threading
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+from typing import List, Optional
 from assemblyai.extras import AssemblyAIExtrasNotInstalledError
 
 
@@ -7,17 +8,37 @@ from assemblyai.extras import AssemblyAIExtrasNotInstalledError
 # PYDANTIC MODELS #
 ###################
 class Item(BaseModel):
-    name: str
+    name:           str
     price_per_unit: float
     image_url_path: str = ""
 
 class Order(Item):
     total_quantity: int = 0
     
+class Menu(BaseModel):
+    items:     List[Item] = []
+    menu_type: str = "main_dish"
+    
+class StreamData(BaseModel):
+    cart:        List[Order] = []
+    menu:        List[Menu] = []
+    action:      Optional[str] = None
+    total_price: float = 0
+    
+    @model_validator(mode="before")
+    def calculate_total_price(cls, values):
+        cart: List[Order] = values.get('cart') or []
+        total_price = sum(order.price_per_unit * order.total_quantity for order in cart)
+        values['total_price'] = total_price
+        return values
 
-######################
-# ORDER KEEP CLASSES #
-######################
+    def update(self):
+        self.total_price = sum(order.price_per_unit * order.total_quantity for order in self.cart)
+    
+class StreamTranscript(BaseModel):
+    text:       str = ""
+    is_partial: bool = True
+
 class MicrophoneStream:
     def __init__(
         self,
@@ -96,3 +117,5 @@ class MicrophoneStream:
         """
         with self._pause_lock:
             self._paused = False
+
+
