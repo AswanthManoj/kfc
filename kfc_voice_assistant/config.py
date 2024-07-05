@@ -41,6 +41,17 @@ WAKE_WORD_MODEL = "openai/whisper-tiny.en"
 WAKE_WORDS = [word.lower() for word in ["hi kfc", "Hello kfc", "ok kfc"]]
 
 
+
+#############
+# DEBUGGING #
+#############
+ENABLE_LLM_VERBOSITY = True
+ENABLE_STT_VERBOSITY = False
+ENABLE_TTS_VERBOSITY = False
+ENABLE_TOOL_VERBOSITY = False
+ENABLE_SOCKET_VERBOSITY = False
+
+
 #############################
 # ASSISTANT GUIDANCE PROMPT #
 #############################
@@ -62,7 +73,7 @@ Remember to be polite, patient, and helpful throughout the interaction. Your res
 
 Example dialogue structure:
 1. Greet and ask for order
-2. Take order, using add_item as needed
+2. Take order and add, modify or remove items depending on user query.
 3. Suggest additional items
 4. When customer is done, use get_cart_contents and summarize order details.
 5. Ask for confirmation 

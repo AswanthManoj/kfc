@@ -1,6 +1,6 @@
 import threading
-from pydantic import BaseModel, model_validator
 from typing import List, Optional
+from pydantic import BaseModel, model_validator
 from assemblyai.extras import AssemblyAIExtrasNotInstalledError
 
 
@@ -35,10 +35,10 @@ class StreamData(BaseModel):
     def update(self):
         self.total_price = sum(order.price_per_unit * order.total_quantity for order in self.cart)
     
-class StreamTranscript(BaseModel):
-    text:         str = ""
-    is_partial:   bool = True
-    is_initiated: bool = False
+class StreamMessages(BaseModel):
+    is_initiated: bool = False          # Indicates if the agent loop started after hearing wake word
+    role:         Optional[str] = None  # can be "assistant" or "user"
+    content:      Optional[str] = None
 
 class MicrophoneStream:
     def __init__(

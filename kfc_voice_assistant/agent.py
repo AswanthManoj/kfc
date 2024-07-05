@@ -11,89 +11,165 @@ from pydub.playback import play
 from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
-from typing import List, Dict, Optional, Tuple
 import requests, os, queue, random, time, threading
-from config import RATE, CHANNELS, ROTATE_LLM_API_KEYS
 from langchain_core.messages import ( 
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
+from typing import List, Dict, Optional, Tuple, Callable
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from config import ( RATE, CHANNELS, ROTATE_LLM_API_KEYS, ENABLE_SOCKET_VERBOSITY,
+    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TOOL_VERBOSITY, ENABLE_TTS_VERBOSITY
+)
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
-from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamTranscript, rotate_key
+from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamMessages, rotate_key
 
 
 #################################
 # ASSISTANT INTERACTION CLASSES #
 #################################
 class Agent:
+    """
+    Represents an AI agent capable of processing messages and invoking tools.
+
+    This class manages interactions with a language model, handles tool calls,
+    and maintains conversation history.
+    """
     def __init__(self, model_name: str, tools: Dict[str, BaseTool]) -> None:
+        """
+        Initialize the Agent with a specified model and set of tools.
+
+        Args:
+            model_name (str): The name of the language model to use.
+            tools (Dict[str, BaseTool]): A dictionary of available tools.
+        """
+        self.api_keys = [os.getenv("GROQ_API_KEY")]
         self.model = ChatGroq(
             max_tokens=1000,
             model=model_name,
             temperature = 0.0,
-            groq_api_key=os.getenv("GROQ_API_KEY"), 
+            groq_api_key=self.api_keys[0], 
         )
         self.available_tools = tools
-        self.api_keys = os.getenv("GROQ_API_KEYS")
         if ROTATE_LLM_API_KEYS:
-            if self.api_keys is None:
+            api_keys = os.getenv("GROQ_API_KEYS")
+            if api_keys is None:
                 raise ("To enable api key rotation, a list of groq api keys are required to be set in the `.env`.")
             else:
-                self.api_keys = ast.literal_eval(self.api_keys)
+                self.api_keys = ast.literal_eval(api_keys)
+        if ENABLE_LLM_VERBOSITY:
+            print(f"LLM: Starting Agent with api_keys: {self.api_keys}")    
         self.agent = self.model.bind_tools(list(tools.values()))
         self.messages = [SystemMessage(content=SYSTEM_PROMPT)]
         
     def add_user_message(self, text:str):
+        """
+        Add a user message to the conversation history.
+
+        Args:
+            text (str): The user's message.
+        """
         self.messages.append(HumanMessage(content=text))
     
     def invoke(self, text:str) -> Tuple[str, bool]:
+        """
+        Process a user input, potentially make tool calls, and generate a response.
+
+        Args:
+            text (str): The user's input text.
+
+        Returns:
+            Tuple[str, bool]: The agent's response and whether an order was confirmed.
+        """
         tries=0
         is_order_confirmed = False
         self.add_user_message(text)
         tool_call_identified = True
+        if ENABLE_LLM_VERBOSITY:
+            print(f"LLM INPUT: {text}")
+        
         while tool_call_identified:
             if ROTATE_LLM_API_KEYS:
-                self.model.groq_api_key=rotate_key(tries)
+                self.model.groq_api_key=rotate_key(self.api_keys, tries)
             tries+=1
-            print("Current try: ", tries)
             response: AIMessage = self.agent.invoke(self.messages)
             self.messages.append(response)
+            
             for tool_call in response.tool_calls:
+                if ENABLE_LLM_VERBOSITY:
+                    print(f"LLM TOOL CALL: {tool_call['name']} - {tool_call['args']}")
                 if tool_call["name"]=="confirm_order":
                     is_order_confirmed = True
+                
                 selected_tool = self.available_tools[tool_call["name"]]
                 tool_output = selected_tool.invoke(tool_call["args"])
+                if ENABLE_LLM_VERBOSITY:
+                    print(f"LLM TOOL OUTPUT: {tool_output}")
                 self.messages.append(ToolMessage(tool_output, tool_call_id=tool_call["id"]))
+            
             if len(response.tool_calls) == 0:
                 tool_call_identified = False
+                if ENABLE_LLM_VERBOSITY:
+                    print(f"LLM RESPONSE: {response.content}")
         return response.content, is_order_confirmed
     
 class SocketManager:
+    """
+    Manages WebSocket connections for real-time communication.
+
+    This class handles connecting to a WebSocket server and sending messages.
+    """
     def __init__(self, host: str="localhost", port: int=8000, entry: str="ws_receive"):
+        """
+        Initialize the SocketManager with connection details.
+
+        Args:
+            host (str): The WebSocket server host.
+            port (int): The server port.
+            entry (str): The entry point for the WebSocket connection.
+        """
         self.host = host
         self.port = port
         self.entry = entry
         self.url = f"ws://{host}:{port}/{entry}"
         self.ws = None
+        self.connect()
     
     def connect(self):
+        """Establish a connection to the WebSocket server."""
         try:
-            self.ws = websocket.create_connection(self.url)
-            print("Connected to WebSocket server.")
+            self.ws = websocket.create_connection(self.url, timeout=2)
+            if ENABLE_SOCKET_VERBOSITY:
+                print("Connected to WebSocket server.")
         except Exception as e:
-            print(f"Failed to connect: {e}")
+            if ENABLE_SOCKET_VERBOSITY:
+                print(f"Failed to connect: {e}")
     
     def send_message(self, message: dict|BaseModel):
+        """
+        Send a message through the WebSocket connection.
+
+        Args:
+            message (dict | BaseModel): The message to send.
+        """
         if not self.ws:
             self.connect()
         try:
             if not isinstance(message, dict):
                 message = message.model_dump()
+            if ENABLE_SOCKET_VERBOSITY:
+                print(f"SOCKET: {message}")
             self.ws.send(json.dumps(message))
         except Exception as e:
-            print(f"Failed to send message: {e}")
+            if ENABLE_SOCKET_VERBOSITY:
+                print(f"Failed to send message: {e}")
 
 class AudioManager:
+    """
+    Manages audio playback and text-to-speech functionality.
+
+    This class handles loading and playing audio files, as well as
+    generating speech from text using an API.
+    """
     def __init__(
         self, 
         model_name: str, 
@@ -101,6 +177,15 @@ class AudioManager:
         initial_response_folder: str = "responses/initial_responses", 
         intermediate_response_folder: str = "responses/intermediate_responses"
     ) -> None:
+        """
+        Initialize the AudioManager with necessary audio resources.
+
+        Args:
+            model_name (str): The name of the text-to-speech model.
+            disfluence_folder (str): Path to disfluency audio files.
+            initial_response_folder (str): Path to initial response audio files.
+            intermediate_response_folder (str): Path to intermediate response audio files.
+        """
         self.model_name = model_name
         self.api_key = os.getenv("DEEPGRAM_API_KEY")
         self.base_url = "https://api.deepgram.com/v1/speak"
@@ -161,31 +246,63 @@ class AudioManager:
         self.audio_queue.put((audio_segment, delay))
     
     def play_disfluent_filler(self):
+        """Play a random disfluency audio."""
         if random.choice([True, True]):
             choice = random.choice(list(self.disfluencies.keys()))
+            if ENABLE_TTS_VERBOSITY:
+                print(f"TTS PRE-REC: {choice}")
             self.__add_to_queue__(self.disfluencies[choice], 1)
     
     def play_initial_response(self) -> str:
+        """
+        Play a random initial response audio.
+
+        Returns:
+            str: The text of the played response.
+        """
         choice = random.choice(list(self.initial_responses.keys()))
+        if ENABLE_TTS_VERBOSITY:
+            print(f"TTS PRE-REC: {choice}")
         self.__add_to_queue__(self.initial_responses[choice])
         return choice
 
     def play_intermediate_response(self, category: str) -> str:
+        """
+        Play a random intermediate response audio from a specific category of tool invocation.
+
+        Args:
+            category (str): The category of the intermediate response.
+
+        Returns:
+            str: The text of the played response.
+        """
         if category in self.intermediate_responses:
             choice = random.choice(list(self.intermediate_responses[category].keys()))
+            if ENABLE_TTS_VERBOSITY:
+                print(f"TTS PRE-REC: {choice}")
             self.__add_to_queue__(self.intermediate_responses[category][choice])
             return choice
         else:
-            print(f"Category {category} not found.")
+            if ENABLE_TTS_VERBOSITY:
+                print(f"TTS: Category {category} not found.")
             return ""
         
     def speak(self, text: str) -> None:
+        """
+        Generate and play speech from the given text.
+
+        Args:
+            text (str): The text to convert to speech.
+        """
         try:
             with requests.post(self.base_url, stream=False, json={"text": text}, params=self.params, headers=self.headers) as r:
                 audio_segment = AudioSegment.from_mp3(BytesIO(r.content))
+                if ENABLE_TTS_VERBOSITY:
+                    print(f"TTS LLM-SPEAK: {text}")
                 self.__add_to_queue__(audio_segment)
         except Exception as e:
-            print(f"Exception in speak: {e}")
+            if ENABLE_TTS_VERBOSITY:
+                print(f"TTS LLM-SPEAK: Exception in speak: {e}")
 
     def wait_until_done(self) -> bool:
         try:
@@ -195,53 +312,63 @@ class AudioManager:
             return False
 
 class ConversationManager:
-    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, agent: Agent):
-        self.agent = agent
+    """
+    Manages the conversation flow, including speech-to-text transcription.
+
+    This class handles real-time transcription of audio and triggers
+    appropriate callbacks for conversation management.
+    """
+    def __init__(self):
+        """Initialize the ConversationManager."""
         self.transcriber = None
         self.is_speaking = False
         self.microphone_stream = None
-        self.audio_manager = audio_manager
-        self.socket_manager = socket_manager
-        # self.pause_transcription = threading.Event()
         aai.settings.api_key = os.getenv("ASSEMBLY_API_KEY")
 
     def on_open(self, session_opened: aai.RealtimeSessionOpened):
-        print(f"Starting up assistant with session id: {session_opened.session_id}")
-        self.socket_manager.send_message(StreamTranscript(is_initiated=True).model_dump())
-        self.audio_manager.play_initial_response()
-
+        if ENABLE_STT_VERBOSITY:
+            print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
+        if self.open_callback:
+            self.open_callback()
+       
     def on_data(self, transcript: aai.RealtimeTranscript):
-        # if self.pause_transcription.is_set():
-        #     return
-        # self.socket_manager.send_message(StreamTranscript(text=transcript.text).model_dump())
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
-            print("User:", transcript.text)
-            self.socket_manager.send_message(StreamTranscript(text=transcript.text, is_partial=False).model_dump())
-            self.process_response(transcript.text)
+            close = False
+            if ENABLE_STT_VERBOSITY:
+                print(f"STT: {transcript.text}")
+            
+            self.microphone_stream.pause()
+            
+            if self.data_callback:
+                close = self.data_callback(transcript.text)   
+            if close:
+                self.microphone_stream.close()
+                self.transcriber.close()
+                if ENABLE_STT_VERBOSITY:
+                    print("STT: Closed connection for listening.")
+        
+            self.microphone_stream.resume()
 
     def on_error(self, error: aai.RealtimeError):
-        print("An error occurred:", error)
+        if ENABLE_STT_VERBOSITY:
+            print("STT: An error occurred:", error)
 
     def on_close(self):
-        print("Closing Session")
+        if ENABLE_STT_VERBOSITY:
+            print("STT: Closed connection for listening")
+            
+    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None):
+        """
+        Start the conversation management process.
 
-    def process_response(self, text: str):
-        # self.pause_transcription.set()
-        self.microphone_stream.pause()
-        
-        response, order_confirmed = self.agent.invoke(text)
-        self.audio_manager.speak(response)
-        self.audio_manager.wait_until_done()
-        
-        if order_confirmed:
-            self.microphone_stream.close()
-            self.transcriber.close()
-        self.microphone_stream.resume()
-        # self.pause_transcription.clear()
-       
-    def run(self):
+        Args:
+            on_open (Optional[Callable]): Callback function when the connection is opened.
+            on_data (Optional[Callable]): Callback function when new transcription data is received.
+        """
+        self.open_callback=on_open
+        self.data_callback=on_data
         self.transcriber = aai.RealtimeTranscriber(
             sample_rate=16_000,
             on_data=self.on_data,
@@ -250,6 +377,8 @@ class ConversationManager:
             on_error=self.on_error,
         )
         self.transcriber.connect()
+        if ENABLE_STT_VERBOSITY:
+            print("STT: Connected to assembly ai socket endpoint.")
         
         self.microphone_stream = MicrophoneStream(sample_rate=16_000)
         self.transcriber.stream(self.microphone_stream)
@@ -258,11 +387,34 @@ class ConversationManager:
         self.microphone_stream.close()
 
 class WakeWordDetector:
+    """
+    Detects wake words in audio input.
+
+    This class uses a pre-trained model to identify specific wake words
+    in audio streams.
+    """
     def __init__(self, model_id: str="openai/whisper-tiny.en", cache_dir: str="downloads") -> None:
+        """
+        Initialize the WakeWordDetector with a specified model.
+
+        Args:
+            model_id (str): The ID of the pre-trained model to use.
+            cache_dir (str): Directory to cache the downloaded model.
+        """
         self.processor = WhisperProcessor.from_pretrained(model_id, cache_dir=cache_dir)
         self.model = WhisperForConditionalGeneration.from_pretrained(model_id, cache_dir=cache_dir)
     
-    def detect(self, wake_words: List[str], wait_time: float=1.25) -> bool:
+    def detect(self, wake_words: List[str], wait_time: float=1.25) -> bool|str:
+        """
+        Listen for and detect wake words in audio input.
+
+        Args:
+            wake_words (List[str]): List of wake words to detect.
+            wait_time (float): Duration to listen for wake words.
+
+        Returns:
+            bool | str: False if no wake word detected, or the transcribed audio if detected.
+        """
         print("Listening for wake word...", end="\r")
         audio_data = sd.rec(int(wait_time * RATE), samplerate=RATE, channels=CHANNELS)
         sd.wait()
@@ -278,7 +430,7 @@ class WakeWordDetector:
 
         if any (wake_word in transcription.strip().lower() for wake_word in wake_words):
             print("Wake word detected")
-            return True
+            return transcription.strip().lower()
         return False
 
 
@@ -287,7 +439,22 @@ class WakeWordDetector:
 # ASSISTANT DATA TOOL CLASSES #
 ###############################
 class KFCMenu:
+    """
+    Represents the KFC menu and provides methods to access menu items.
+
+    This class manages the available menu items and their details.
+    """
     def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
+        """
+        Initialize the KFCMenu with menu items and necessary managers.
+
+        Args:
+            audio_manager (AudioManager): The AudioManager instance.
+            socket_manager (SocketManager): The SocketManager instance.
+            beverages (Optional[List[Item]]): List of available beverages.
+            main_dishes (Optional[List[Item]]): List of available main dishes.
+            side_dishes (Optional[List[Item]]): List of available side dishes.
+        """
         self.beverages=beverages
         self.main_dishes=main_dishes
         self.side_dishes=side_dishes
@@ -311,6 +478,10 @@ class KFCMenu:
             d = dish.model_dump(exclude=["image_url_path"])
             d['price_per_unit'] = f"${dish.price_per_unit}"
             dishes.append(d)
+            
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'get_main_dishes':", yaml.dump(dishes))
+            
         return yaml.dump(dishes)
 
     def get_sides(self) -> str:
@@ -323,6 +494,10 @@ class KFCMenu:
             d = dish.model_dump(exclude=["image_url_path"])
             d['price_per_unit'] = f"${dish.price_per_unit}"
             dishes.append(d)
+            
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'get_sides':", yaml.dump(dishes))
+            
         return yaml.dump(dishes)
 
     def get_beverages(self) -> str:
@@ -335,6 +510,10 @@ class KFCMenu:
             b = bev.model_dump(exclude=["image_url_path"])
             b['price_per_unit'] = f"${bev.price_per_unit}"
             beverages.append(b)
+            
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'get_beverages':", yaml.dump(beverages))
+            
         return yaml.dump(beverages)
     
     def get_item_by_name(self, name: str) -> Optional[Item]:
@@ -375,6 +554,9 @@ class OrderCart(KFCMenu):
         stream_data.update()
         self.socket_manager.send_message(stream_data.model_dump())
         
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'add_item':", yaml.dump(result))
+        
         return yaml.dump(result)
 
     def remove_item(self, item_name: str, quantity: int = 1, remove_all: bool = False) -> str:
@@ -396,6 +578,9 @@ class OrderCart(KFCMenu):
         stream_data.action="remove_item"
         stream_data.update()
         self.socket_manager.send_message(stream_data.model_dump())
+            
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'remove_item':", yaml.dump(result))
             
         return yaml.dump(result)
 
@@ -419,6 +604,9 @@ class OrderCart(KFCMenu):
         stream_data.update()
         self.socket_manager.send_message(stream_data.model_dump())
         
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'modify_quantity':", yaml.dump(result))
+        
         return yaml.dump(result)
 
     def confirm_order(self) -> str:
@@ -434,6 +622,9 @@ class OrderCart(KFCMenu):
         stream_data.action="confirm_order"
         stream_data.update()
         self.socket_manager.send_message(stream_data.model_dump())
+        
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'confirm_order':", yaml.dump(confirmation))
         
         self.reset_cart()
         return yaml.dump(confirmation)
@@ -451,6 +642,9 @@ class OrderCart(KFCMenu):
         stream_data.update()
         self.socket_manager.send_message(stream_data.model_dump())    
             
+        if ENABLE_TOOL_VERBOSITY:
+            print("TOOL 'get_cart_contents':", f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")    
+            
         if contents:
             return f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}"
         return "The cart is currently empty."
@@ -460,6 +654,84 @@ class OrderCart(KFCMenu):
 
 
 
+
+'''
+class ConversationManager:
+    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, agent: Agent):
+        self.agent = agent
+        self.transcriber = None
+        self.is_speaking = False
+        self.microphone_stream = None
+        self.audio_manager = audio_manager
+        self.socket_manager = socket_manager
+        # self.pause_transcription = threading.Event()
+        aai.settings.api_key = os.getenv("ASSEMBLY_API_KEY")
+
+    def on_open(self, session_opened: aai.RealtimeSessionOpened):
+        if ENABLE_STT_VERBOSITY:
+            print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
+        response = self.audio_manager.play_initial_response()
+        self.socket_manager.send_message(StreamMessages(
+            role="assistant",
+            content=response, is_initiated=True
+        ).model_dump())
+
+    def on_data(self, transcript: aai.RealtimeTranscript):
+        # if self.pause_transcription.is_set():
+        #     return
+        if not transcript.text:
+            return
+        if isinstance(transcript, aai.RealtimeFinalTranscript):
+            self.process_response(transcript.text)
+
+    def on_error(self, error: aai.RealtimeError):
+        print("An error occurred:", error)
+
+    def on_close(self):
+        print("Closing Session")
+
+    def process_response(self, text: str):
+        # self.pause_transcription.set()
+        if ENABLE_STT_VERBOSITY and not ENABLE_LLM_VERBOSITY:
+            print(f"STT: {text}")
+        self.socket_manager.send_message(StreamMessages(
+            role="user",
+            content=text, is_partial=False
+        ).model_dump())
+        
+        self.microphone_stream.pause()
+        
+        response, order_confirmed = self.agent.invoke(text)
+        self.audio_manager.speak(response)
+        self.audio_manager.wait_until_done()
+        
+        if order_confirmed:
+            self.microphone_stream.close()
+            self.transcriber.close()
+            if ENABLE_STT_VERBOSITY:
+                print("STT: Closed connection for listening")
+            
+        self.microphone_stream.resume()
+        # self.pause_transcription.clear()
+       
+    def run(self):
+        self.transcriber = aai.RealtimeTranscriber(
+            sample_rate=16_000,
+            on_data=self.on_data,
+            on_open=self.on_open,
+            on_close=self.on_close,
+            on_error=self.on_error,
+        )
+        self.transcriber.connect()
+        if ENABLE_STT_VERBOSITY:
+            print("STT: Connected to assembly ai socket endpoint.")
+        
+        self.microphone_stream = MicrophoneStream(sample_rate=16_000)
+        self.transcriber.stream(self.microphone_stream)
+        
+        self.transcriber.close()
+        self.microphone_stream.close()
+'''
 
 
             
