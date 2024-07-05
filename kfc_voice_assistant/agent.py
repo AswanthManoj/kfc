@@ -268,7 +268,7 @@ class WakeWordDetector:
         sd.wait()
         
         audio_data = audio_data.flatten()
-        audio_data = audio_data.astype(np.float16)
+        audio_data = audio_data.astype(np.float32)
         if audio_data.max() > 1.0:
             audio_data = audio_data / 32768.0
         
