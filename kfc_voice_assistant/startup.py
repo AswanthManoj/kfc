@@ -38,19 +38,22 @@ def get_order_cart():
             audio_manager=get_audio_manager(),
             socket_manager=get_socket_manager(),
             beverages=[
-                Item(name="Pepsi", price_per_unit=1.99, image_url_path="/images/pepsi.jpg"),
-                Item(name="Iced Tea", price_per_unit=1.79, image_url_path="/images/iced_tea.jpg"),
-                Item(name="Mountain Dew", price_per_unit=1.99, image_url_path="/images/mountain_dew.jpg")
-            ],
-            main_dishes=[
-                Item(name="Zinger Burger", price_per_unit=4.99, image_url_path="/images/zinger_burger.jpg"),
-                Item(name="Chicken Twister", price_per_unit=5.49, image_url_path="/images/chicken_twister.jpg"),
-                Item(name="Original Recipe Chicken - 2 pc", price_per_unit=5.99, image_url_path="/images/original_chicken.jpg")
+                Item(name="Pepsi", price_per_unit=1.41, image_url_path="/images/pepsi.jpg"),
+                Item(name="Iced Tea", price_per_unit=1.13, image_url_path="/images/iced_tea.jpg"),
+                Item(name="Mountain Dew", price_per_unit=1.53, image_url_path="/images/mountain_dew.jpg")
             ],
             side_dishes=[
                 Item(name="Coleslaw", price_per_unit=1.99, image_url_path="/images/coleslaw.jpg"),
                 Item(name="French Fries", price_per_unit=2.49, image_url_path="/images/fries.jpg"),
-                Item(name="Mashed Potatoes", price_per_unit=2.29, image_url_path="/images/mashed_potatoes.jpg")
+                Item(name="Mac and Cheese Bowl", price_per_unit=2.99, image_url_path="/images/mac_and_cheese.jpg"),
+                Item(name="Cream Cheese Mashed Potatoes", price_per_unit=2.29, image_url_path="/images/cream_cheese_mashed_potatoes.jpg"),
+            ],
+            main_dishes=[
+                Item(name="KFC Special Chizza", price_per_unit=3.7, image_url_path="/images/chizza.jpg"),
+                Item(name="Zinger Burger", price_per_unit=3.49, image_url_path="/images/zinger_burger.jpg"),
+                Item(name="Hot and Saucy Chicken", price_per_unit=4.1, image_url_path="/images/hot_and_saucy_chicken.jpg"),
+                Item(name="Chicken Crispy Tender Hot Dog", price_per_unit=4.7, image_url_path="/images/crispy_tender_hot_dog.jpg"),
+                Item(name="KFC Chicken Drumstick Bucket 12pc", price_per_unit=6.1, image_url_path="images/chicken_drumstick_bucket.jpg"),
             ]
         )
     return order_cart
