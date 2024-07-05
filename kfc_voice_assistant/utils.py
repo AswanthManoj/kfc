@@ -36,8 +36,9 @@ class StreamData(BaseModel):
         self.total_price = sum(order.price_per_unit * order.total_quantity for order in self.cart)
     
 class StreamTranscript(BaseModel):
-    text:       str = ""
-    is_partial: bool = True
+    text:         str = ""
+    is_partial:   bool = True
+    is_initiated: bool = False
 
 class MicrophoneStream:
     def __init__(
@@ -119,3 +120,5 @@ class MicrophoneStream:
             self._paused = False
 
 
+def rotate_key(keys: List[str], idx: int) -> str:
+    return keys[idx%len(keys)]

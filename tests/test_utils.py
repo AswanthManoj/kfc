@@ -265,7 +265,11 @@ class LanguageModel:
 class ConversationManager:
     def __init__(self, stt_model_id: str, llm_model_id: str, tts_model_id: str):
         self.transcription_response = ""
-        self.tts = TextToSpeech(tts_model_id)
+        self.tts = TextToSpeech(
+            model_name=tts_model_id, 
+            disfluence_folder="responses/disfluencies",
+            initial_response_folder="responses/initial_responses"
+        )
         self.stt = SpeechToText(stt_model_id)
         self.llm = LanguageModel(llm_model_id)
     

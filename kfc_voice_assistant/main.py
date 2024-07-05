@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+
+print("Starting up")
+load_dotenv()
+
 # Main code to run both front-end and back-end codes as sub-processes
 
 # Run the fastapi server first

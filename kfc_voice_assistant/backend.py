@@ -1,20 +1,22 @@
-from config import LLM_MODEL
+from config import (
+    LLM_MODEL, WAKE_WORDS, 
+    WAKE_WAIT_DELAY, WAKE_WORD_MODEL
+)
 from tools import get_available_tools
 from startup import get_audio_manager, get_socket_manager
 from agent import ConversationManager, Agent, WakeWordDetector
 
 
 def main():
-    # TODO: Add websocket client for streaming UI and transcriptions.
-    detector = WakeWordDetector()
     tools = get_available_tools()
     audio_manager = get_audio_manager()
     socket_manager = get_socket_manager()
+    detector = WakeWordDetector(WAKE_WORD_MODEL)
     agent = Agent(model_name=LLM_MODEL, tools=tools)
     manager = ConversationManager(agent=agent, audio_manager=audio_manager, socket_manager=socket_manager)
     
     while True:
-        if detector.detect(["hi kfc", "hello kfc", "ok kfc"], wait_time=1.2):
+        if detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
             manager.run()
 
 if __name__=="__main__":

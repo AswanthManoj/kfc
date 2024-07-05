@@ -2,17 +2,48 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-os.mkdir("downloads", exists=True)
+if not os.path.exists("downloads"):
+    os.makedirs("downloads")
 
-RATE = 16000
-CHANNELS = 1
-RECORD_SECONDS = 1.25
 
-STT_MODEL = "nova-2"
+#################
+# MODELS PARAMS #
+#################
+# STT_MODEL = "nova-2"
+ROTATE_LLM_API_KEYS = True
 LLM_MODEL = "llama3-8b-8192"
 TTS_MODEL = "aura-asteria-en"
 
 
+############################
+# SOCKET CONNECTION PARAMS #
+############################
+SOCKET_PORT = 8000
+SOCKET_HOST = "localhost"
+SOCKET_ENTRY = "ws_receive"
+
+
+#############################
+# PRE-RECORDED SOUNDS PATHS #
+#############################
+DISFLUENCE = "responses/disfluencies"
+INITIAL_RESPONSE = "responses/initial_responses"
+INTERMEDIATE_RESPONSE = "responses/intermediate_responses"
+
+
+####################
+# WAKE WORD PARAMS #
+####################
+RATE = 16000
+CHANNELS = 1
+WAKE_WAIT_DELAY = 1.2
+WAKE_WORD_MODEL = "openai/whisper-tiny.en"
+WAKE_WORDS = [word.lower() for word in ["hi kfc", "Hello kfc", "ok kfc"]]
+
+
+#############################
+# ASSISTANT GUIDANCE PROMPT #
+#############################
 SYSTEM_PROMPT = """You are a KFC drive-thru food ordering interactive voice assistant. Your primary goal is to help customers place their orders efficiently and accurately. 
 
 Follow these guidelines:
@@ -39,6 +70,6 @@ Example dialogue structure:
 
 Always prioritize clarity and brevity in your responses to ensure a smooth ordering process.
 
-**Note: Deny any question apart from the food ordering.**
+**Note: Deny any question apart from the food ordering related to KFC.**
 """
 

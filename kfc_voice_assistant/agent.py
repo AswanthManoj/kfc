@@ -1,3 +1,4 @@
+import ast
 import websocket
 import yaml, json
 import numpy as np
@@ -10,15 +11,14 @@ from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
 from typing import List, Dict, Optional, Tuple
-from config import RATE, RECORD_SECONDS, CHANNELS
 import requests, os, queue, random, time, threading
+from config import RATE, CHANNELS, ROTATE_LLM_API_KEYS
 from langchain_core.messages import ( 
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
-from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamTranscript
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
-
+from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamTranscript, rotate_key
 
 
 #################################
@@ -33,6 +33,12 @@ class Agent:
             groq_api_key=os.getenv("GROQ_API_KEY"), 
         )
         self.available_tools = tools
+        self.api_keys = os.getenv("GROQ_API_KEYS")
+        if ROTATE_LLM_API_KEYS:
+            if self.api_keys is None:
+                raise ("To enable api key rotation, a list of groq api keys are required to be set in the `.env`.")
+            else:
+                self.api_keys = ast.literal_eval(self.api_keys)
         self.agent = self.model.bind_tools(list(tools.values()))
         self.messages = [SystemMessage(content=SYSTEM_PROMPT)]
         
@@ -45,6 +51,8 @@ class Agent:
         self.add_user_message(text)
         tool_call_identified = True
         while tool_call_identified:
+            if ROTATE_LLM_API_KEYS:
+                self.model.groq_api_key=rotate_key(tries)
             tries+=1
             print("Current try: ", tries)
             response: AIMessage = self.agent.invoke(self.messages)
@@ -196,6 +204,7 @@ class ConversationManager:
 
     def on_open(self, session_opened: aai.RealtimeSessionOpened):
         print(f"Starting up assistant with session id: {session_opened.session_id}")
+        self.socket_manager.send_message(StreamTranscript(is_initiated=True))
         self.audio_manager.play_initial_response()
 
     def on_data(self, transcript: aai.RealtimeTranscript):
@@ -252,7 +261,6 @@ class WakeWordDetector:
     
     def detect(self, wake_words: List[str], wait_time: float=1.25) -> bool:
         print("Listening for wake word...", end="\r")
-        wake_words = [word.lower() for word in wake_words]
         audio_data = sd.rec(int(wait_time * RATE), samplerate=RATE, channels=CHANNELS)
         sd.wait()
         
@@ -266,6 +274,7 @@ class WakeWordDetector:
         transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 
         if any (wake_word in transcription.strip().lower() for wake_word in wake_words):
+            print("Wake word detected")
             return True
         return False
 

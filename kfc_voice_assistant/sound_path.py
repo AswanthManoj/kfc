@@ -6,6 +6,7 @@ disfluencies_data = {
     # "ahh": "ahh.mp3", 
     # "fine": "fine.mp3",
     # "got it...": "got_it.mp3", 
+    "uh hung...": "uh_hung.mp3",
     "uh-huh...": "uh_huh.mp3", 
     "umm okay...": "um_ok.mp3",
     "uh ha um": "uh_ha_um.mp3", 

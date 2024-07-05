@@ -1,4 +1,7 @@
-from config import TTS_MODEL
+from config import (
+    TTS_MODEL, SOCKET_HOST, SOCKET_PORT, SOCKET_ENTRY,
+    DISFLUENCE, INITIAL_RESPONSE, INTERMEDIATE_RESPONSE
+)
 from agent import AudioManager, OrderCart, Item, SocketManager
 
 
@@ -12,9 +15,9 @@ def get_audio_manager():
     if audio_manager is None:
         audio_manager = AudioManager(
             model_name=TTS_MODEL,
-            disfluence_folder="disfluencies",
-            initial_response_folder="responses/initial_responses",
-            intermediate_response_folder="responses/intermediate_responses"
+            disfluence_folder=DISFLUENCE,
+            initial_response_folder=INITIAL_RESPONSE,
+            intermediate_response_folder=INTERMEDIATE_RESPONSE
         )
     return audio_manager
 
@@ -22,9 +25,9 @@ def get_socket_manager():
     global socket_manager
     if socket_manager is None:
         socket_manager = SocketManager(
-            port=8000, 
-            host="localhost", 
-            entry="ws_receive"
+            port=SOCKET_PORT, 
+            host=SOCKET_HOST, 
+            entry=SOCKET_ENTRY
         )
     return socket_manager
 

@@ -33,24 +33,27 @@ git clone https://github.com/sajithamma/kfc.git
 cd kfc
 ```
 
-
+---
 2. Install poetry for dependency management: 
 ```bash 
 pip install poetry
 ```
 
-2. Install the required dependencies:
+---
+3. Install the required dependencies:
 ```bash
 poetry install
 ```
-
+---
 4. Set up API keys (one time):
     - Create a `.env` file in the project root folder.
     - Go to [Assembly ai's website](https://www.assemblyai.com/), login and get an API key paste it inside `.env` file as `ASSEMBLY_API_KEY=<your-api-key>`.
     - Go to [Deepgram's website](https://deepgram.com/), login and get an API key paste it inside `.env` file as `DEEPGRAM_API_KEY=<your-api-key>`.
     - Go to [Groq's website](https://groq.com/), login and get the API key then paste it inside `.env` as `GROQ_API_KEY=<your-api-key>`.
 
+**Note:** To enable rotation of api keys for groq, set a variable `GROQ_API_KEYS=["<api-key1>", "<api-key2>", "<api-key3>"]` in `.env` and set `ROTATE_LLM_API_KEYS` variable to be `True` in `config.py`.
 
+---
 3. Run the application:
 ```bash
 poetry run python kfc_voice_assistant/main.py
