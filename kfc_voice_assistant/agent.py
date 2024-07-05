@@ -5,6 +5,7 @@ import numpy as np
 from io import BytesIO
 import sounddevice as sd
 import assemblyai as aai
+from pydantic import BaseModel
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
@@ -82,10 +83,12 @@ class SocketManager:
         except Exception as e:
             print(f"Failed to connect: {e}")
     
-    def send_message(self, message: dict):
+    def send_message(self, message: dict|BaseModel):
         if not self.ws:
             self.connect()
         try:
+            if not isinstance(message, dict):
+                message = message.model_dump()
             self.ws.send(json.dumps(message))
         except Exception as e:
             print(f"Failed to send message: {e}")
@@ -204,18 +207,18 @@ class ConversationManager:
 
     def on_open(self, session_opened: aai.RealtimeSessionOpened):
         print(f"Starting up assistant with session id: {session_opened.session_id}")
-        self.socket_manager.send_message(StreamTranscript(is_initiated=True))
+        self.socket_manager.send_message(StreamTranscript(is_initiated=True).model_dump())
         self.audio_manager.play_initial_response()
 
     def on_data(self, transcript: aai.RealtimeTranscript):
         # if self.pause_transcription.is_set():
         #     return
-        self.socket_manager.send_message(StreamTranscript(text=transcript.text))
+        # self.socket_manager.send_message(StreamTranscript(text=transcript.text).model_dump())
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
             print("User:", transcript.text)
-            self.socket_manager.send_message(StreamTranscript(text=transcript.text, is_partial=False))
+            self.socket_manager.send_message(StreamTranscript(text=transcript.text, is_partial=False).model_dump())
             self.process_response(transcript.text)
 
     def on_error(self, error: aai.RealtimeError):
