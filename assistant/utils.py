@@ -28,12 +28,18 @@ class StreamData(BaseModel):
     @model_validator(mode="before")
     def calculate_total_price(cls, values):
         cart: List[Order] = values.get('cart') or []
-        total_price = sum(order.price_per_unit * order.total_quantity for order in cart)
+        if cart:
+            total_price = sum(order.price_per_unit * order.total_quantity for order in cart)
+        else:
+            total_price = 0
         values['total_price'] = total_price
         return values
 
     def update(self):
-        self.total_price = sum(order.price_per_unit * order.total_quantity for order in self.cart)
+        if self.cart:
+            self.total_price = sum(order.price_per_unit * order.total_quantity for order in self.cart)
+        else:
+            self.total_price = 0
     
 class StreamMessages(BaseModel):
     is_initiated: bool = False          # Indicates if the agent loop started after hearing wake word

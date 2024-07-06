@@ -45,11 +45,11 @@ WAKE_WORDS = [word.lower() for word in ["hi kfc", "Hello kfc", "ok kfc"]]
 #############
 # DEBUGGING #
 #############
-ENABLE_LLM_VERBOSITY = True
+ENABLE_LLM_VERBOSITY = False
 ENABLE_STT_VERBOSITY = False
 ENABLE_TTS_VERBOSITY = False
 ENABLE_TOOL_VERBOSITY = False
-ENABLE_SOCKET_VERBOSITY = False
+ENABLE_WEBVIEW_VERBOSITY = False
 
 
 #############################

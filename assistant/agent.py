@@ -1,11 +1,8 @@
 import ast
-import websocket
-import yaml, json
 import numpy as np
 from io import BytesIO
 import sounddevice as sd
 import assemblyai as aai
-from pydantic import BaseModel
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
@@ -15,13 +12,14 @@ import requests, os, queue, random, time, threading
 from langchain_core.messages import ( 
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
+from assistant.utils import MicrophoneStream, rotate_key
 from typing import List, Dict, Optional, Tuple, Callable
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
-from config import ( RATE, CHANNELS, ROTATE_LLM_API_KEYS, ENABLE_SOCKET_VERBOSITY,
-    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TOOL_VERBOSITY, ENABLE_TTS_VERBOSITY
+from config import ( RATE, CHANNELS, ROTATE_LLM_API_KEYS,
+    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY
 )
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
-from utils import MicrophoneStream, Item, Order, Menu, StreamData, StreamMessages, rotate_key
+
 
 
 #################################
@@ -111,57 +109,6 @@ class Agent:
                 if ENABLE_LLM_VERBOSITY:
                     print(f"LLM RESPONSE: {response.content}")
         return response.content, is_order_confirmed
-    
-class SocketManager:
-    """
-    Manages WebSocket connections for real-time communication.
-
-    This class handles connecting to a WebSocket server and sending messages.
-    """
-    def __init__(self, host: str="localhost", port: int=8000, entry: str="ws_receive"):
-        """
-        Initialize the SocketManager with connection details.
-
-        Args:
-            host (str): The WebSocket server host.
-            port (int): The server port.
-            entry (str): The entry point for the WebSocket connection.
-        """
-        self.host = host
-        self.port = port
-        self.entry = entry
-        self.url = f"ws://{host}:{port}/{entry}"
-        self.ws = None
-        self.connect()
-    
-    def connect(self):
-        """Establish a connection to the WebSocket server."""
-        try:
-            self.ws = websocket.create_connection(self.url, timeout=2)
-            if ENABLE_SOCKET_VERBOSITY:
-                print("Connected to WebSocket server.")
-        except Exception as e:
-            if ENABLE_SOCKET_VERBOSITY:
-                print(f"Failed to connect: {e}")
-    
-    def send_message(self, message: dict|BaseModel):
-        """
-        Send a message through the WebSocket connection.
-
-        Args:
-            message (dict | BaseModel): The message to send.
-        """
-        if not self.ws:
-            self.connect()
-        try:
-            if not isinstance(message, dict):
-                message = message.model_dump()
-            if ENABLE_SOCKET_VERBOSITY:
-                print(f"SOCKET: {message}")
-            self.ws.send(json.dumps(message))
-        except Exception as e:
-            if ENABLE_SOCKET_VERBOSITY:
-                print(f"Failed to send message: {e}")
 
 class AudioManager:
     """
@@ -432,225 +379,6 @@ class WakeWordDetector:
             print("Wake word detected")
             return transcription.strip().lower()
         return False
-
-
-
-###############################
-# ASSISTANT DATA TOOL CLASSES #
-###############################
-class KFCMenu:
-    """
-    Represents the KFC menu and provides methods to access menu items.
-
-    This class manages the available menu items and their details.
-    """
-    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
-        """
-        Initialize the KFCMenu with menu items and necessary managers.
-
-        Args:
-            audio_manager (AudioManager): The AudioManager instance.
-            socket_manager (SocketManager): The SocketManager instance.
-            beverages (Optional[List[Item]]): List of available beverages.
-            main_dishes (Optional[List[Item]]): List of available main dishes.
-            side_dishes (Optional[List[Item]]): List of available side dishes.
-        """
-        self.beverages=beverages
-        self.main_dishes=main_dishes
-        self.side_dishes=side_dishes
-        self.audio_manager = audio_manager
-        self.socket_manager = socket_manager
-        self.stream_data = StreamData(
-            menu=[
-                Menu(menu_type="beverage", items=self.beverages),
-                Menu(menu_type="main_dish", items=self.main_dishes),
-                Menu(menu_type="side_dish", items=self.side_dishes),
-            ]
-        )
-    
-    def get_main_dishes(self) -> str:
-        self.audio_manager.play_intermediate_response("get_main_dishes")
-        stream_data = self.stream_data
-        stream_data.action="get_main_dishes"
-        self.socket_manager.send_message(stream_data.model_dump())
-        dishes = []
-        for dish in self.main_dishes:
-            d = dish.model_dump(exclude=["image_url_path"])
-            d['price_per_unit'] = f"${dish.price_per_unit}"
-            dishes.append(d)
-            
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_main_dishes':", yaml.dump(dishes))
-            
-        return yaml.dump(dishes)
-
-    def get_sides(self) -> str:
-        self.audio_manager.play_intermediate_response("get_sides")
-        stream_data = self.stream_data
-        stream_data.action="get_sides"
-        self.socket_manager.send_message(stream_data.model_dump())
-        dishes = []
-        for dish in self.side_dishes:
-            d = dish.model_dump(exclude=["image_url_path"])
-            d['price_per_unit'] = f"${dish.price_per_unit}"
-            dishes.append(d)
-            
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_sides':", yaml.dump(dishes))
-            
-        return yaml.dump(dishes)
-
-    def get_beverages(self) -> str:
-        self.audio_manager.play_intermediate_response("get_beverages")
-        stream_data = self.stream_data
-        stream_data.action="get_beverages"
-        self.socket_manager.send_message(stream_data.model_dump())
-        beverages = []
-        for bev in self.beverages:
-            b = bev.model_dump(exclude=["image_url_path"])
-            b['price_per_unit'] = f"${bev.price_per_unit}"
-            beverages.append(b)
-            
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_beverages':", yaml.dump(beverages))
-            
-        return yaml.dump(beverages)
-    
-    def get_item_by_name(self, name: str) -> Optional[Item]:
-        for category in [self.main_dishes, self.side_dishes, self.beverages]:
-            for item in category:
-                if name == item.name:
-                    return item
-        return None
-    
-class OrderCart(KFCMenu):
-    
-    def __init__(self, audio_manager: AudioManager, socket_manager: SocketManager, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
-        super().__init__(audio_manager, socket_manager, beverages, main_dishes, side_dishes)
-        self.orders: List[Order] = []
-    
-    def add_item(self, item_name: str, quantity: int = 1) -> str:
-        is_new = True
-        item = self.get_item_by_name(item_name)
-        if item is None:
-            return yaml.dump({"error": "Item not found from the menu."})
-        
-        self.audio_manager.play_intermediate_response("add_item")
-        
-        result = dict(name=item.name, total_quantity=quantity, price_per_unit=f"${item.price_per_unit}")
-        for i, order in enumerate(self.orders):
-            if order.name == item_name:
-                self.orders[i].total_quantity += quantity
-                result['total_quantity'] = self.orders[i].total_quantity
-                result['price_per_unit'] = f"${order.price_per_unit}"
-                is_new = False
-                break
-        if is_new:
-            self.orders.append(Order(name=item_name, price_per_unit=item.price_per_unit, total_quantity=quantity))
-        
-        stream_data = self.stream_data
-        stream_data.action="add_item"
-        stream_data.cart = self.orders
-        stream_data.update()
-        self.socket_manager.send_message(stream_data.model_dump())
-        
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'add_item':", yaml.dump(result))
-        
-        return yaml.dump(result)
-
-    def remove_item(self, item_name: str, quantity: int = 1, remove_all: bool = False) -> str:
-        result = dict(name=item_name, action="not_found")
-        for i, order in enumerate(self.orders):
-            if order.name == item_name:
-                self.audio_manager.play_intermediate_response("remove_item")
-                if (order.total_quantity <= quantity) or remove_all:
-                    self.orders.pop(i)
-                    result['action'] = "fully_removed"
-                else:
-                    self.orders[i].total_quantity -= quantity
-                    result['action'] = "partially_removed"
-                    result['remaining_quantity'] = self.orders[i].total_quantity
-                break
-        
-        stream_data = self.stream_data
-        stream_data.cart = self.orders
-        stream_data.action="remove_item"
-        stream_data.update()
-        self.socket_manager.send_message(stream_data.model_dump())
-            
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'remove_item':", yaml.dump(result))
-            
-        return yaml.dump(result)
-
-    def modify_quantity(self, item_name: str, new_quantity: int) -> str:
-        result = dict(name=item_name, action="not_found")
-        for order in self.orders:
-            if order.name == item_name:
-                self.audio_manager.play_intermediate_response("modify_quantity")
-                if new_quantity <= 0:
-                    self.orders.remove(order)
-                    result['action'] = "removed"
-                else:
-                    order.total_quantity = new_quantity
-                    result['action'] = "updated"
-                    result['new_quantity'] = new_quantity
-                break
-            
-        stream_data = self.stream_data
-        stream_data.cart = self.orders
-        stream_data.action="modify_quantity"
-        stream_data.update()
-        self.socket_manager.send_message(stream_data.model_dump())
-        
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'modify_quantity':", yaml.dump(result))
-        
-        return yaml.dump(result)
-
-    def confirm_order(self) -> str:
-        self.audio_manager.play_intermediate_response("confirm_order")
-        confirmation = {
-            "status": "confirmed",
-            "message": "Your order has been confirmed.",
-            "items": [{"name": order.name, "quantity": order.total_quantity} for order in self.orders]
-        }
-        
-        stream_data = self.stream_data
-        stream_data.cart = self.orders
-        stream_data.action="confirm_order"
-        stream_data.update()
-        self.socket_manager.send_message(stream_data.model_dump())
-        
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'confirm_order':", yaml.dump(confirmation))
-        
-        self.reset_cart()
-        return yaml.dump(confirmation)
-
-    def get_cart_contents(self) -> str:
-        contents = []
-        total_price = 0
-        for order in self.orders:
-            total_price += (order.total_quantity * order.price_per_unit)
-            contents.append({"name": order.name, "quantity": order.total_quantity})
-            
-        stream_data = self.stream_data
-        stream_data.cart = self.orders
-        stream_data.action="get_cart_contents"
-        stream_data.update()
-        self.socket_manager.send_message(stream_data.model_dump())    
-            
-        if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_cart_contents':", f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")    
-            
-        if contents:
-            return f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}"
-        return "The cart is currently empty."
-
-    def reset_cart(self) -> None:
-        self.orders = []
 
 
 

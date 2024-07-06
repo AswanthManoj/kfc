@@ -1,22 +1,24 @@
-from tools import get_available_tools
-from startup import get_audio_manager, get_socket_manager
-from agent import ConversationManager, Agent, WakeWordDetector
-from config import (
-    LLM_MODEL, WAKE_WORDS, WAKE_WAIT_DELAY, WAKE_WORD_MODEL,
-    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_SOCKET_VERBOSITY, ENABLE_TTS_VERBOSITY
+import config
+from startup import (
+    get_audio_manager, get_kfc_agent, 
+    get_conversation_manager, get_wakeword_detector, get_order_cart
 )
+from web_builder.builder import generate_menu, WebViewApp
 
+config.ENABLE_TTS_VERBOSITY = True
+config.ENABLE_LLM_VERBOSITY = True
+config.ENABLE_STT_VERBOSITY = True
+config.ENABLE_WEBVIEW_VERBOSITY = True
 
 def test_agent():
-    tools = get_available_tools()
     audio_manager = get_audio_manager()
-    agent = Agent(model_name=LLM_MODEL, tools=tools)
+    agent = get_kfc_agent()
     
     while True:
         user = input("User: ")
         response, finished = agent.invoke(user)
         audio_manager.speak(response)
-        if not ENABLE_LLM_VERBOSITY:
+        if not config.ENABLE_LLM_VERBOSITY:
             print("Assistant:", response)
         if finished:
             print("Order placed successfully")
@@ -48,28 +50,35 @@ def test_stt_listen():
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
         pass
     
-    manager = ConversationManager()
+    
+    manager = get_conversation_manager()
     manager.run(on_open=open_callback, on_data=data_callback)
      
 def test_wake_word():
-    detector = WakeWordDetector(WAKE_WORD_MODEL)
+    detector = get_wakeword_detector()
     while True:
         listened = detector.detect(["hi", "hello"], 1.25)
         if listened:
             print(listened)
             break
         
-def test_socket():
-    manager = get_socket_manager()
-    while True:
-        user = input("Enter: ")
-        if user:
-            manager.send_message({"user": user})
-            
+
             
 if __name__=="__main__":
-    test_agent()
+    # test_agent()
     # test_audio_manager()
     # test_stt_listen()
     # test_wake_word()
-    # test_socket()
+    
+    cart = get_order_cart()
+    app = WebViewApp()
+    app.run_webview()  # Start the WebView
+
+    data = cart.view_data
+    data.action = "get_main_dishes"
+    app.display(data)
+
+    # Keep the main thread running
+    import time
+    while True:
+        time.sleep(1)

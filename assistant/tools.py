@@ -1,5 +1,5 @@
-from startup import get_order_cart
 from langchain_core.tools import tool
+from assistant.menu import get_order_cart
 
   
 ################
@@ -13,7 +13,8 @@ def get_main_dishes() -> str:
     Returns:
     str: A menu list with main dishes and their prices.
     """
-    return get_order_cart().get_main_dishes()
+    order_cart = get_order_cart()
+    return order_cart.get_main_dishes()
     
 @tool
 def get_sides() -> str:
@@ -23,7 +24,8 @@ def get_sides() -> str:
     Returns:
     str: A menu list with side dishes and their prices.
     """
-    return get_order_cart().get_sides()
+    order_cart = get_order_cart()
+    return order_cart.get_sides()
    
 @tool 
 def get_beverages() -> str:
@@ -33,7 +35,8 @@ def get_beverages() -> str:
     Returns:
     str: A menu list with beverages and their prices.
     """
-    return get_order_cart().get_beverages()
+    order_cart = get_order_cart()
+    return order_cart.get_beverages()
  
 
 ################
@@ -53,7 +56,8 @@ def add_item(item_name: str, quantity: int = 1) -> str:
     Returns:
     str: Information about the name, price per unit, and total quantity of the added item in cart.
     """
-    return get_order_cart().add_item(item_name, quantity)
+    order_cart = get_order_cart()
+    return order_cart.add_item(item_name, quantity)
        
 @tool
 def remove_item(item_name: str, quantity: int = 1, remove_all: bool=False) -> str:
@@ -68,7 +72,8 @@ def remove_item(item_name: str, quantity: int = 1, remove_all: bool=False) -> st
     Returns:
     str: Information about the item name and its remaining quantity in cart, or if it was fully removed.
     """
-    return get_order_cart().remove_item(item_name, quantity, remove_all)
+    order_cart = get_order_cart()
+    return order_cart.remove_item(item_name, quantity, remove_all)
 
 @tool
 def modify_quantity(item_name: str, new_quantity: int) -> str:
@@ -82,7 +87,8 @@ def modify_quantity(item_name: str, new_quantity: int) -> str:
     Returns:
     str: Information about the item name and its updated quantity in cart.
     """
-    return get_order_cart().modify_quantity(item_name, new_quantity)
+    order_cart = get_order_cart()
+    return order_cart.modify_quantity(item_name, new_quantity)
 
 @tool
 def get_cart_contents() -> str:
@@ -92,7 +98,8 @@ def get_cart_contents() -> str:
     Returns:
     str: Information about the current contents of the cart along with their total price.
     """
-    return get_order_cart().get_cart_contents()
+    order_cart = get_order_cart()
+    return order_cart.get_cart_contents()
 
 @tool
 def confirm_order() -> str:
@@ -102,8 +109,8 @@ def confirm_order() -> str:
     Returns:
     str: Information with a confirmation message and order details. Gracefully greet the customer and end the conversation.
     """
-    return get_order_cart().confirm_order()
-
+    order_cart = get_order_cart()
+    return order_cart.confirm_order()
 
 def get_available_tools() -> dict:
     return {
