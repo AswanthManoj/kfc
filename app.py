@@ -63,6 +63,7 @@ def main2(app: WebViewApp):
         audio_manager.speak(response)
         audio_manager.wait_until_done()
         if order_confirmed:
+            print("Loop Ended")
             break
 
 

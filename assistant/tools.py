@@ -43,7 +43,7 @@ def get_beverages() -> str:
 # CART METHODS #
 ################
 @tool
-def add_item(item_name: str, quantity: int = 1) -> str:
+def add_item_to_cart(item_name: str, quantity: int = 1) -> str:
     """
     Add an item to the cart. Use this function when a customer wants to add an item to their order. 
         
@@ -60,7 +60,7 @@ def add_item(item_name: str, quantity: int = 1) -> str:
     return order_cart.add_item(item_name, quantity)
        
 @tool
-def remove_item(item_name: str, quantity: int = 1, remove_all: bool=False) -> str:
+def remove_item_from_cart(item_name: str, quantity: int = 1, remove_all: bool=False) -> str:
     """
     Remove an item from the cart. Use this function when a customer wants to remove an item from their order.
 
@@ -76,7 +76,7 @@ def remove_item(item_name: str, quantity: int = 1, remove_all: bool=False) -> st
     return order_cart.remove_item(item_name, quantity, remove_all)
 
 @tool
-def modify_quantity(item_name: str, new_quantity: int) -> str:
+def modify_item_quantity_in_cart(item_name: str, new_quantity: int) -> str:
     """
     Modify the quantity of an item in the cart. Use this function when a customer wants to change the quantity of an item in their order.
 
@@ -113,13 +113,13 @@ def confirm_order() -> str:
     return order_cart.confirm_order()
 
 def get_available_tools() -> dict:
-    return {
-        "add_item": add_item, 
-        "get_sides": get_sides,
-        "remove_item": remove_item, 
+    return { 
+        "get_sides": get_sides, 
         "confirm_order": confirm_order, 
         "get_beverages": get_beverages,
-        "get_main_dishes": get_main_dishes, 
-        "modify_quantity": modify_quantity,
-        "get_cart_contents": get_cart_contents
+        "get_main_dishes": get_main_dishes,
+        "add_item_to_cart": add_item_to_cart,
+        "get_cart_contents": get_cart_contents,
+        "remove_item_from_cart": remove_item_from_cart,
+        "modify_item_quantity_in_cart": modify_item_quantity_in_cart,
     }
