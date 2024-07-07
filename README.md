@@ -70,26 +70,33 @@ cd kfc
 python app.py
 ```
 
+---
 
 ### Project Structuring:
 
 #### Webview and related UI methods: 
+
     - web_builder/builder.py : For Webview class and related UI manipulation methods.
     - web_builder/templates.py : For html template definitions.
 
 #### Assistant Utilities related Classes and Methods:
+
     - assistant/agent.py : Contains Speech to text, Text to speech, Langchain agent definitions and Wake-word detector.
     - assistant/menu.py : Contains the menu parent class and its subclass for cart with singleton definition with available items.
     - assistant/tools.py : Contains the langchain agent tools whose functionalities where defined within `assistant/menu.py/OrderCart` classes methods.
     - assistant/utils.py : Contains the pydantic model definitions and Microphone object class for the `assemblyai` to listen with (package's Microphone class didn't had a pause option)
 
 #### startup.py:
+
     - Initializes all utility classes.
 
 #### config.py:
+
     - Defines debugging, system prompt, global variables etc.
 
 #### app.py:
 Contains two main functions:
     - `main1` method uses voice features as user input to assistant.
     - `main2` method uses console input as user input to assistant.
+
+#### Note: All intermediate voice plays and UI updates are done from the tool calls itself from `assistant/menu.py/OrderCart` and `assistant/menu.py/KFCMenu` class's methods
