@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "kfc"
+version = "0.1.0"
+description = ""
+authors = ["ASWANTH C M <aswanthmanoj51@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.1"
+deepgram-sdk = "^3.3.1"
+pyaudio = "^0.2.14"
+llama-index-llms-groq = "^0.1.4"
+llama-index = "^0.10.52"
+pygame = "^2.6.0"
+pydub = "^0.25.1"
+transformers = "^4.42.3"
+torch = "^2.3.1"
+sounddevice = "^0.4.7"
+scipy = "^1.14.0"
+groq = "^0.9.0"
+pydantic = "^2.8.2"
+langchain-groq = "^0.1.6"
+assemblyai = "0.29.0"
+webview = {git = "https://github.com/AswanthManoj/webview.git"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

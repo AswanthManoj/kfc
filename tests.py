@@ -1,3 +1,4 @@
+import time
 import config
 from startup import (
     get_audio_manager, get_kfc_agent, 
@@ -62,6 +63,13 @@ def test_wake_word():
             print(listened)
             break
         
+def test_webview():
+    app = WebViewApp()
+    i=0
+    while True:
+        i+=1
+        app.display(f"<h2>This is a live update count {i}</h2>")
+        time.sleep(1)
 
             
 if __name__=="__main__":
@@ -69,16 +77,5 @@ if __name__=="__main__":
     # test_audio_manager()
     # test_stt_listen()
     # test_wake_word()
-    
-    cart = get_order_cart()
-    app = WebViewApp()
-    app.run_webview()  # Start the WebView
-
-    data = cart.view_data
-    data.action = "get_main_dishes"
-    app.display(data)
-
-    # Keep the main thread running
-    import time
-    while True:
-        time.sleep(1)
+    test_webview()
+    pass

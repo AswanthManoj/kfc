@@ -1,5 +1,7 @@
+# import webview
 import os, base64
-import webview, queue, yaml
+import queue, yaml
+from webview import Webview
 from typing import List, Optional
 from config import ENABLE_WEBVIEW_VERBOSITY
 from assistant.utils import StreamData, StreamMessages
@@ -39,44 +41,20 @@ logo_image_data = get_base64_image(os.path.join(BASE_DIR, LOGO_IMAGE_PATH))
 menu_background_image_data = get_base64_image(os.path.join(BASE_DIR, MENU_BACKGROUND_IMAGE))
 home_background_image_data = get_base64_image(os.path.join(BASE_DIR, HOME_BACKGROUND_IMAGE))
 
-    
+
 class WebViewApp:
-    def __init__(self):
-        self.window = None
-        self.html_queue = queue.Queue()
-
-    def run_webview(self):
-        if ENABLE_WEBVIEW_VERBOSITY:
-            print("WEBVIEW: Initializing WebView window...")
-        self.window = webview.create_window(
-            'KFC Assistant', 
-            width=850,
-            height=850,
-            html=get_home()
-        )
-        if ENABLE_WEBVIEW_VERBOSITY:
-            print("WEBVIEW: Starting WebView...")
-        webview.start(self.update_content, debug=ENABLE_WEBVIEW_VERBOSITY)
-
-    def update_content(self):
-        while True:
-            try:
-                new_html = self.html_queue.get(timeout=1)
-                if new_html:
-                    if ENABLE_WEBVIEW_VERBOSITY:
-                        print("Updating WebView content...")
-                    self.window.load_html(new_html)
-            except queue.Empty:
-                pass
-            except Exception as e:
-                if ENABLE_WEBVIEW_VERBOSITY:
-                    print(f"Error updating WebView content: {str(e)}")
-
+    def __init__(self, host: str="127.0.0.1", port: int=8080, debug: bool=False, title: str="KFC Voice Assistant", log_level: str="warning"):
+        self.webview = Webview
+        self.webview.configure(title=title, host=host, port=port, debug=debug, log_level=log_level)
+        is_started = self.webview.start_webview()
+        self.webview.update_view(get_home())
+        if is_started and ENABLE_WEBVIEW_VERBOSITY:
+            print(f"WEBVIEW: Started webview")
+    
     def display(self, data: StreamData|StreamMessages|str) -> bool:
         html_content = None
         if ENABLE_WEBVIEW_VERBOSITY:
             print(f"WEBVIEW DATA: {data}")
-        
         try:
             if isinstance(data, StreamData) and data.action:
                 html_content = generate_menu(data)
@@ -85,7 +63,7 @@ class WebViewApp:
             else:
                 html_content = self.wrap(data)
         
-            self.html_queue.put(html_content)
+            self.webview.update_view(html_content)
         
             if ENABLE_WEBVIEW_VERBOSITY:
                 print(f"WEBVIEW HTML: {html_content[:500]}...")
@@ -97,6 +75,64 @@ class WebViewApp:
     
     def wrap(self, content:str):
         return f"<html><p>{content}</p></html>"
+    
+# class WebViewApp:
+#     def __init__(self):
+#         self.window = None
+#         self.html_queue = queue.Queue()
+
+#     def run_webview(self):
+#         if ENABLE_WEBVIEW_VERBOSITY:
+#             print("WEBVIEW: Initializing WebView window...")
+#         self.window = webview.create_window(
+#             'KFC Assistant', 
+#             width=850,
+#             height=850,
+#             html=get_home()
+#         )
+#         if ENABLE_WEBVIEW_VERBOSITY:
+#             print("WEBVIEW: Starting WebView...")
+#         webview.start(self.update_content, debug=ENABLE_WEBVIEW_VERBOSITY)
+
+#     def update_content(self):
+#         while True:
+#             try:
+#                 new_html = self.html_queue.get(timeout=1)
+#                 if new_html:
+#                     if ENABLE_WEBVIEW_VERBOSITY:
+#                         print("Updating WebView content...")
+#                     self.window.load_html(new_html)
+#             except queue.Empty:
+#                 pass
+#             except Exception as e:
+#                 if ENABLE_WEBVIEW_VERBOSITY:
+#                     print(f"Error updating WebView content: {str(e)}")
+
+#     def display(self, data: StreamData|StreamMessages|str) -> bool:
+#         html_content = None
+#         if ENABLE_WEBVIEW_VERBOSITY:
+#             print(f"WEBVIEW DATA: {data}")
+        
+#         try:
+#             if isinstance(data, StreamData) and data.action:
+#                 html_content = generate_menu(data)
+#             elif isinstance(data, StreamMessages):
+#                 html_content = self.wrap(yaml.dump(data.model_dump()))
+#             else:
+#                 html_content = self.wrap(data)
+        
+#             self.html_queue.put(html_content)
+        
+#             if ENABLE_WEBVIEW_VERBOSITY:
+#                 print(f"WEBVIEW HTML: {html_content[:500]}...")
+#             return True
+#         except Exception as e:
+#             if ENABLE_WEBVIEW_VERBOSITY:
+#                 print(f"Error in display method: {str(e)}")
+#             return False
+    
+#     def wrap(self, content:str):
+#         return f"<html><p>{content}</p></html>"
     
     
 def get_home() -> str:

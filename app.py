@@ -1,5 +1,3 @@
-import time
-import threading
 from web_builder.builder import WebViewApp
 from config import WAKE_WORDS, WAKE_WAIT_DELAY
 from startup import (
@@ -20,7 +18,6 @@ def main1(app: WebViewApp):
     order_cart.update_webview_manager(app)
     order_cart.update_audio_manager(audio_manager)
     
-    app.display("Assistant starting up...")
     
     def open_callback():
         """Function called on open"""
@@ -52,9 +49,7 @@ def main2(app: WebViewApp):
     order_cart.update_webview_manager(app)
     order_cart.update_audio_manager(audio_manager)
     
-    app.display("Assistant starting up...")
     audio_manager.play_initial_response()
-    app.display("Active")
     
     while True:
         user = input("User: ")
@@ -69,13 +64,14 @@ def main2(app: WebViewApp):
 
 if __name__ == '__main__':
     app = WebViewApp()
+    main2(app)
     # Start a separate thread for other tasks
-    task_thread = threading.Thread(target=main2, args=(app,))
-    task_thread.start()
+    # task_thread = threading.Thread(target=main2, args=(app,))
+    # task_thread.start()
 
     # Run webview on the main thread
-    app.run_webview()
+    # app.run_webview()
 
     # Join the task thread when done
-    task_thread.join()
+    # task_thread.join()
 
