@@ -24,37 +24,36 @@ initial_responses_data = {
 }
 
 intermediate_responses_data = {
-    "get_main_dishes": {
+    "show_main_dishes": {
         "Let me pull up our main dishes for you.": "sample1.mp3",
         "Sure, Let's see our mains...": "sample2.mp3",
         "Just a second...": "sample3.mp3",
-        "Alright, Let me check it out for you...": "sample4.mp3",
     },
-    "get_sides": {
+    "show_side_dishes": {
         "Let me grab our sides menu for you.": "sample1.mp3",
-        "Sure thing, I'll check what sides we've got.": "sample2.mp3",
-        "Okay, Let me see what sides we're offering today.": "sample3.mp3",
+        # "Sure thing, I'll check what sides we've got.": "sample2.mp3",
+        # "Okay, Let me see what sides we're offering today.": "sample3.mp3",
         "Let's see our side dishes...": "sample4.mp3"
     },
-    "get_beverages": {
+    "show_beverages": {
         "Let's see our beverages options...": "sample1.mp3",
-        "Sure, I'll check what beverages we have available.": "sample2.mp3",
+        # "Sure, I'll check what beverages we have available.": "sample2.mp3",
         "Drink options coming right up...": "sample3.mp3",
         "uh.. Alright...": "sample4.mp3"
     },
-    "add_item": {
+    "add_item_to_cart": {
         "Got it, I'm adding it to your order now.": "sample1.mp3",
         "Okay, Am adding it to the cart right away.": "sample2.mp3",
         "Alright, I'm including that in...": "sample3.mp3",
         "Sure thing, I'm adding it to the order.": "sample4.mp3",
     },
-    "remove_item": {
+    "remove_item_from_cart": {
         "Got it..., Removing it...": "sample1.mp3",
         "No problem...": "sample2.mp3",
         "Okay, Taking the item off the order...": "sample3.mp3",
         "Sure thing...": "sample4.mp3"
     },
-    "modify_quantity": {
+    "modify_item_quantity_in_cart": {
         "Certainly..., I'll update that for you...": "sample1.mp3",
         "No problem, I'm changing it...": "sample2.mp3",
         "Okay, I'm, adjusting the quantity...": "sample3.mp3",

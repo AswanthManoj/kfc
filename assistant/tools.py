@@ -6,37 +6,37 @@ from assistant.menu import get_order_cart
 # MENU METHODS #
 ################
 @tool
-def get_main_dishes() -> str:
+def show_main_dishes() -> str:
     """
-    Retrieve available main dishes and their prices.
+    Use this to display available main dishes and their prices to the user.
         
     Returns:
-    str: A menu list with main dishes and their prices.
+    bool: `True` if successfully displayed False
     """
     order_cart = get_order_cart()
-    return order_cart.get_main_dishes()
+    return order_cart.show_main_dishes()
     
 @tool
-def get_sides() -> str:
+def show_side_dishes() -> str:
     """
-    Retrieve available side dishes and their prices.
+    Use this to display available side dishes and their prices to the user.
 
     Returns:
-    str: A menu list with side dishes and their prices.
+    bool: `True` if successfully displayed False
     """
     order_cart = get_order_cart()
-    return order_cart.get_sides()
+    return order_cart.show_side_dishes()
    
 @tool 
-def get_beverages() -> str:
+def show_beverages() -> str:
     """
-    Retrieve available beverages and their prices.
+    Use this to display available beverages and their prices to the user.
 
     Returns:
-    str: A menu list with beverages and their prices.
+    bool: `True` if successfully displayed False
     """
     order_cart = get_order_cart()
-    return order_cart.get_beverages()
+    return order_cart.show_beverages()
  
 
 ################
@@ -57,7 +57,7 @@ def add_item_to_cart(item_name: str, quantity: int = 1) -> str:
     str: Information about the name, price per unit, and total quantity of the added item in cart.
     """
     order_cart = get_order_cart()
-    return order_cart.add_item(item_name, quantity)
+    return order_cart.add_item_to_cart(item_name, quantity)
        
 @tool
 def remove_item_from_cart(item_name: str, quantity: int = 1, remove_all: bool=False) -> str:
@@ -73,7 +73,7 @@ def remove_item_from_cart(item_name: str, quantity: int = 1, remove_all: bool=Fa
     str: Information about the item name and its remaining quantity in cart, or if it was fully removed.
     """
     order_cart = get_order_cart()
-    return order_cart.remove_item(item_name, quantity, remove_all)
+    return order_cart.remove_item_from_cart(item_name, quantity, remove_all)
 
 @tool
 def modify_item_quantity_in_cart(item_name: str, new_quantity: int) -> str:
@@ -88,7 +88,7 @@ def modify_item_quantity_in_cart(item_name: str, new_quantity: int) -> str:
     str: Information about the item name and its updated quantity in cart.
     """
     order_cart = get_order_cart()
-    return order_cart.modify_quantity(item_name, new_quantity)
+    return order_cart.modify_item_quantity_in_cart(item_name, new_quantity)
 
 @tool
 def get_cart_contents() -> str:
@@ -114,10 +114,10 @@ def confirm_order() -> str:
 
 def get_available_tools() -> dict:
     return { 
-        "get_sides": get_sides, 
         "confirm_order": confirm_order, 
-        "get_beverages": get_beverages,
-        "get_main_dishes": get_main_dishes,
+        "show_beverages": show_beverages,
+        "show_side_dishes": show_side_dishes, 
+        "show_main_dishes": show_main_dishes,
         "add_item_to_cart": add_item_to_cart,
         "get_cart_contents": get_cart_contents,
         "remove_item_from_cart": remove_item_from_cart,

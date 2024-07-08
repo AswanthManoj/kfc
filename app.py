@@ -22,7 +22,7 @@ def main1(app: WebViewApp):
     def open_callback():
         """Function called on open"""
         response = audio_manager.play_initial_response()
-        app.display(response)
+        audio_manager.wait_until_done()
         
     def data_callback(text: str) -> bool:
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
@@ -32,7 +32,7 @@ def main1(app: WebViewApp):
         return order_confirmed
     
     while True:
-        if wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
+        if True or wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
             conversation_manager.run(
                 on_open=open_callback, 
                 on_data=data_callback,
@@ -64,7 +64,7 @@ def main2(app: WebViewApp):
 
 if __name__ == '__main__':
     app = WebViewApp()
-    main2(app)
+    main1(app)
     # Start a separate thread for other tasks
     # task_thread = threading.Thread(target=main2, args=(app,))
     # task_thread.start()

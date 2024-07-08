@@ -47,67 +47,47 @@ class KFCMenu:
     def update_audio_manager(self, audio_manager):
         self.audio_manager = audio_manager
         
+    def generate_intermediate_outputs(self, action: str) -> bool:
+        if self.audio_manager:
+            self.audio_manager.play_intermediate_response(
+                category=action
+            )
+        if self.webview_manager:
+            self.webview_manager.display(
+                data=self.get_view_data(action)
+            )
+        return True if self.webview_manager else False
+        
     def get_view_data(self, action: str=None) -> StreamData:
-        view_data = self.view_data.model_copy()
-        view_data.cart = self.orders
-        if action:
-            view_data.action=action
-        view_data.update()
-        return view_data
+        self.view_data.cart = self.orders
+        if action in ["add_item_to_cart", "remove_item_from_cart", "modify_item_quantity_in_cart" , "get_cart_contents"]:
+            self.view_data.current_menu_view = self.view_data.action
+        else:
+            self.view_data.current_menu_view = action
+        self.view_data.action = action
+        self.view_data.update()
+        return self.view_data
     
-    def get_main_dishes(self) -> str:
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response("get_main_dishes")
-        if self.webview_manager:
-            view_data = self.get_view_data("get_main_dishes")
-            self.webview_manager.display(view_data)
-        
-        dishes = []
-        for dish in self.main_dishes:
-            d = dish.model_dump(exclude=["image_url_path"])
-            d['price_per_unit'] = f"${dish.price_per_unit}"
-            dishes.append(d)
-            
+    def show_main_dishes(self) -> bool:
+        action = self.show_main_dishes.__name__
+        emitted = self.generate_intermediate_outputs(action)
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_main_dishes':", yaml.dump(dishes))
-            
-        return yaml.dump(dishes)
+            print(f"TOOL '{action}' Invoked")
+        return emitted
 
-    def get_sides(self) -> str:
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response("get_sides")
-        if self.webview_manager:
-            view_data = self.get_view_data("get_sides")
-            self.webview_manager.display(view_data)
-            
-        dishes = []
-        for dish in self.side_dishes:
-            d = dish.model_dump(exclude=["image_url_path"])
-            d['price_per_unit'] = f"${dish.price_per_unit}"
-            dishes.append(d)
-            
+    def show_side_dishes(self) -> bool:
+        action = self.show_main_dishes.__name__
+        emitted = self.generate_intermediate_outputs(action)
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_sides':", yaml.dump(dishes))
-            
-        return yaml.dump(dishes)
+            print(f"TOOL '{action}' Invoked")
+        return emitted
 
-    def get_beverages(self) -> str:
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response("get_beverages")
-        if self.webview_manager:
-            view_data = self.get_view_data("get_beverages")
-            self.webview_manager.display(view_data)
-        
-        beverages = []
-        for bev in self.beverages:
-            b = bev.model_dump(exclude=["image_url_path"])
-            b['price_per_unit'] = f"${bev.price_per_unit}"
-            beverages.append(b)
-            
+    def show_beverages(self) -> bool:
+        action = self.show_main_dishes.__name__
+        emitted = self.generate_intermediate_outputs(action)
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_beverages':", yaml.dump(beverages))
-            
-        return yaml.dump(beverages)
+            print(f"TOOL '{action}' Invoked")
+        return emitted
     
     def get_item_by_name(self, name: str) -> Optional[Item]:
         for category in [self.main_dishes, self.side_dishes, self.beverages]:
@@ -116,20 +96,18 @@ class KFCMenu:
                     return item
         return None
     
+
 class OrderCart(KFCMenu):
     
     def __init__(self, audio_manager: AudioManager=None, webview_manager: WebViewApp=None, beverages: Optional[List[Item]] = None, main_dishes: Optional[List[Item]] = None, side_dishes: Optional[List[Item]] = None) -> None:
         super().__init__(audio_manager, webview_manager, beverages, main_dishes, side_dishes)
     
-    def add_item(self, item_name: str, quantity: int = 1) -> str:
+    def add_item_to_cart(self, item_name: str, quantity: int = 1) -> str:
         is_new = True
         item = self.get_item_by_name(item_name)
         if item is None:
             return yaml.dump({"error": "Item not found from the menu."})
-        
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response("add_item")
-        
+
         result = dict(name=item.name, total_quantity=quantity, price_per_unit=f"${item.price_per_unit}")
         for i, order in enumerate(self.orders):
             if order.name == item_name:
@@ -140,22 +118,17 @@ class OrderCart(KFCMenu):
                 break
         if is_new:
             self.orders.append(Order(name=item_name, price_per_unit=item.price_per_unit, total_quantity=quantity))
-        
-        if self.webview_manager:
-            view_data = self.get_view_data("add_item")
-            self.webview_manager.display(view_data)
-        
+            
+        action = self.show_main_dishes.__name__
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'add_item':", yaml.dump(result))
-        
+            print(f"TOOL '{action}': {yaml.dump(result)}")
+            
         return yaml.dump(result)
 
-    def remove_item(self, item_name: str, quantity: int = 1, remove_all: bool = False) -> str:
+    def remove_item_from_cart(self, item_name: str, quantity: int = 1, remove_all: bool = False) -> str:
         result = dict(name=item_name, action="not_found")
         for i, order in enumerate(self.orders):
             if order.name == item_name:
-                if self.audio_manager:
-                    self.audio_manager.play_intermediate_response("remove_item")
                 if (order.total_quantity <= quantity) or remove_all:
                     self.orders.pop(i)
                     result['action'] = "fully_removed"
@@ -164,22 +137,17 @@ class OrderCart(KFCMenu):
                     result['action'] = "partially_removed"
                     result['remaining_quantity'] = self.orders[i].total_quantity
                 break
-        
-        if self.webview_manager:
-            view_data = self.get_view_data("remove_item")
-            self.webview_manager.display(view_data)
             
+        action = self.show_main_dishes.__name__
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'remove_item':", yaml.dump(result))
+            print(f"TOOL '{action}': {yaml.dump(result)}")
             
         return yaml.dump(result)
 
-    def modify_quantity(self, item_name: str, new_quantity: int) -> str:
+    def modify_item_quantity_in_cart(self, item_name: str, new_quantity: int) -> str:
         result = dict(name=item_name, action="not_found")
         for order in self.orders:
             if order.name == item_name:
-                if self.audio_manager:
-                    self.audio_manager.play_intermediate_response("modify_quantity")
                 if new_quantity <= 0:
                     self.orders.remove(order)
                     result['action'] = "removed"
@@ -189,30 +157,22 @@ class OrderCart(KFCMenu):
                     result['new_quantity'] = new_quantity
                 break
             
-        if self.webview_manager:
-            view_data = self.get_view_data("modify_quantity")
-            self.webview_manager.display(view_data)
-        
+        action = self.show_main_dishes.__name__
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'modify_quantity':", yaml.dump(result))
+            print(f"TOOL '{action}': {yaml.dump(result)}")
         
         return yaml.dump(result)
 
     def confirm_order(self) -> str:
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response("confirm_order")
-        if self.webview_manager:
-            view_data = self.get_view_data("confirm_order")
-            self.webview_manager.display(view_data)
-            
         confirmation = {
             "status": "confirmed",
             "message": "Your order has been confirmed.",
             "items": [{"name": order.name, "quantity": order.total_quantity} for order in self.orders]
         }
         
+        action = self.show_main_dishes.__name__
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'confirm_order':", yaml.dump(confirmation))
+            print(f"TOOL '{action}': {yaml.dump(confirmation)}")
         
         self.reset_cart()
         return yaml.dump(confirmation)
@@ -221,15 +181,13 @@ class OrderCart(KFCMenu):
         contents = []
         total_price = 0
         for order in self.orders:
-            total_price += (order.total_quantity * order.price_per_unit)
-            contents.append({"name": order.name, "quantity": order.total_quantity})
+            total = order.total_quantity * order.price_per_unit
+            total_price += total
+            contents.append({"name": order.name, "quantity": order.total_quantity, "price": total})
             
-        if self.webview_manager:
-            view_data = self.get_view_data("get_cart_contents")
-            self.webview_manager.display(view_data)
-            
+        action = self.show_main_dishes.__name__
         if ENABLE_TOOL_VERBOSITY:
-            print("TOOL 'get_cart_contents':", f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")    
+            print(f"TOOL '{action}': {yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")  
             
         if contents:
             return f"{yaml.dump(contents)}\n\nTotal Price of items: ${total_price}"
@@ -237,6 +195,9 @@ class OrderCart(KFCMenu):
 
     def reset_cart(self) -> None:
         self.orders = []
+        self.get_view_data()
+        self.stream_messages = None
+        self.current_menu_view = None
         
 class SingletonMeta(type):
     _instances = {}
@@ -256,6 +217,7 @@ class SingletonOrderCart(OrderCart, metaclass=SingletonMeta):
     
     def update_audio_manager(self, audio_manager):
         self.audio_manager = audio_manager
+            
         
 def get_order_cart():
     if not hasattr(get_order_cart, "instance"):
@@ -281,3 +243,6 @@ def get_order_cart():
         )
     return get_order_cart.instance
 
+def get_menu_items() -> List[Menu]:
+    order_cart = get_order_cart()
+    return order_cart.view_data.menu

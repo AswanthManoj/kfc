@@ -1,4 +1,4 @@
-import ast
+import ast, yaml
 import numpy as np
 from io import BytesIO
 import sounddevice as sd
@@ -8,12 +8,13 @@ from pydub.playback import play
 from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
+from assistant.utils import StreamData, Menu
 import requests, os, queue, random, time, threading
 from langchain_core.messages import ( 
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
-from assistant.utils import MicrophoneStream, rotate_key
 from typing import List, Dict, Optional, Tuple, Callable
+from assemblyai.extras import AssemblyAIExtrasNotInstalledError
 from config import ( RATE, CHANNELS, ROTATE_LLM_API_KEYS,
     ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY
 )
@@ -32,13 +33,14 @@ class Agent:
     This class manages interactions with a language model, handles tool calls,
     and maintains conversation history.
     """
-    def __init__(self, model_name: str, tools: Dict[str, BaseTool]) -> None:
+    def __init__(self, model_name: str, tools: Dict[str, BaseTool], menu_items: List[Menu]) -> None:
         """
         Initialize the Agent with a specified model and set of tools.
 
         Args:
             model_name (str): The name of the language model to use.
             tools (Dict[str, BaseTool]): A dictionary of available tools.
+            menu_items: List[Menu]: A list of the menu items available to be added to the system prompt.
         """
         self.api_keys = [os.getenv("GROQ_API_KEY")]
         self.model = ChatGroq(
@@ -48,16 +50,47 @@ class Agent:
             groq_api_key=self.api_keys[0], 
         )
         self.available_tools = tools
+        self.agent = self.model.bind_tools(list(tools.values()))
+
         if ROTATE_LLM_API_KEYS:
             api_keys = os.getenv("GROQ_API_KEYS")
             if api_keys is None:
                 raise ("To enable api key rotation, a list of groq api keys are required to be set in the `.env`.")
             else:
                 self.api_keys = ast.literal_eval(api_keys)
+        
         if ENABLE_LLM_VERBOSITY:
             print(f"LLM: Starting Agent with api_keys: {self.api_keys}")    
-        self.agent = self.model.bind_tools(list(tools.values()))
-        self.messages = [SystemMessage(content=SYSTEM_PROMPT)]
+        
+        self.format_system_prompt(menu_items)
+    
+    def rotate_key(self, keys: List[str], idx: int) -> str:
+        return keys[idx%len(keys)]
+      
+    def format_system_prompt(self, menu_items: List[Menu]):
+        if menu_items is None:
+            raise ("LLM: Agent requires the menu items added to its system prompt. Please call pass parameter to `menu_items`.")
+        else:
+            string = ""
+            for m in menu_items:
+                if m.menu_type=="main_dishes":
+                    string += "Available Main Dishes:\n"
+                    for i, item in enumerate(m.items):
+                        string += f"\t{i+1}. Name: {item.name}, Price per unit: {item.price_per_unit}\n"
+                    string+="\n"
+                elif m.menu_type=="side_dishes":
+                    string += "Available Side Dishes:\n"
+                    for i, item in enumerate(m.items):
+                        string += f"\t{i+1}. Name: {item.name}, Price per unit: {item.price_per_unit}\n"
+                    string+="\n"
+                elif m.menu_type=="beverages":
+                    string += "Available Beverages:\n"
+                    for i, item in enumerate(m.items):
+                        string += f"\t{i+1}. Name: {item.name}, Price per unit: {item.price_per_unit}\n"
+                    string+="\n"
+                    
+            self.system_prompt = SYSTEM_PROMPT.format(menu=string)
+            self.messages = [SystemMessage(content=self.system_prompt)]
         
     def add_user_message(self, text:str):
         """
@@ -87,7 +120,7 @@ class Agent:
         
         while tool_call_identified:
             if ROTATE_LLM_API_KEYS:
-                self.model.groq_api_key=rotate_key(self.api_keys, tries)
+                self.model.groq_api_key=self.rotate_key(self.api_keys, tries)
             tries+=1
             response: AIMessage = self.agent.invoke(self.messages)
             self.messages.append(response)
@@ -257,6 +290,87 @@ class AudioManager:
             return True
         except queue.Empty:
             return False
+        
+class MicrophoneStream:
+    def __init__(
+        self,
+        sample_rate: int = 44_100,
+    ):
+        """
+        Creates a stream of audio from the microphone.
+
+        Args:
+            sample_rate: The sample rate to record audio at.
+        """
+        self.sample_rate = sample_rate
+        self._chunk_size = int(self.sample_rate * 0.1)
+        
+        self._stream = sd.InputStream(
+            samplerate=sample_rate,
+            channels=1,
+            dtype='int16',
+            blocksize=self._chunk_size,
+            callback=self._audio_callback
+        )
+
+        self._buffer = []
+        self._open = True
+        self._paused = False
+        self._pause_lock = threading.Lock()
+    
+    def _audio_callback(self, indata, frames, time, status):
+        if status:
+            print(f"Status: {status}")
+        with self._pause_lock:
+            if not self._paused:
+                self._buffer.append(indata.copy())
+
+    def __iter__(self):
+        """
+        Returns the iterator object.
+        """
+        self._stream.start()
+        return self
+
+    def __next__(self):
+        """
+        Reads a chunk of audio from the microphone.
+        """
+        if not self._open:
+            raise StopIteration
+
+        try:
+            with self._pause_lock:
+                if self._paused:
+                    return np.zeros(self._chunk_size, dtype='int16').tobytes()  # Return silence when paused
+                while not self._buffer:
+                    if not self._open:
+                        raise StopIteration
+                return self._buffer.pop(0).tobytes()
+        except KeyboardInterrupt:
+            raise StopIteration
+
+    def close(self):
+        """
+        Closes the stream.
+        """
+        self._open = False
+        self._stream.stop()
+        self._stream.close()
+
+    def pause(self):
+        """
+        Pauses the recording process.
+        """
+        with self._pause_lock:
+            self._paused = True
+
+    def resume(self):
+        """
+        Resumes the recording process.
+        """
+        with self._pause_lock:
+            self._paused = False
 
 class ConversationManager:
     """

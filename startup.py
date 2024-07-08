@@ -1,8 +1,8 @@
-from assistant.menu import get_order_cart
-from assistant.tools import get_available_tools
 from assistant.agent import ( AudioManager, 
     WakeWordDetector, ConversationManager, Agent
 )
+from assistant.tools import get_available_tools
+from assistant.menu import get_order_cart, get_menu_items
 from config import (
     TTS_MODEL, DISFLUENCE, LLM_MODEL,
     INITIAL_RESPONSE, INTERMEDIATE_RESPONSE, WAKE_WORD_MODEL
@@ -20,7 +20,8 @@ def get_kfc_agent():
     if agent is None:
         agent = Agent(
             model_name=LLM_MODEL,
-            tools=get_available_tools()
+            tools=get_available_tools(),
+            menu_items=get_menu_items()
         )
     return agent
 

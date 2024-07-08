@@ -4,7 +4,7 @@ from startup import (
     get_audio_manager, get_kfc_agent, 
     get_conversation_manager, get_wakeword_detector, get_order_cart
 )
-from web_builder.builder import generate_menu, WebViewApp
+from web_builder.builder import WebViewApp
 
 config.ENABLE_TTS_VERBOSITY = True
 config.ENABLE_LLM_VERBOSITY = True
