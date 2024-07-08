@@ -1,5 +1,6 @@
 from web_builder.builder import WebViewApp
 from config import WAKE_WORDS, WAKE_WAIT_DELAY
+from assistant.utils import StreamData, Message
 from startup import (
     get_conversation_manager, get_wakeword_detector,
     get_audio_manager, get_order_cart, get_kfc_agent
@@ -17,22 +18,47 @@ def main1(app: WebViewApp):
     
     order_cart.update_webview_manager(app)
     order_cart.update_audio_manager(audio_manager)
+    kfc_agent.update_audio_manager(audio_manager)
     
     
     def open_callback():
         """Function called on open"""
         response = audio_manager.play_initial_response()
         audio_manager.wait_until_done()
+        app.display(StreamData(
+            is_started=True,
+            stream_messages=[
+                Message(role="assistant", content=response)
+            ]
+        ))
         
     def data_callback(text: str) -> bool:
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
+        app.display(StreamData(
+            stream_messages=[
+                Message(role="user", content=text)
+            ]
+        ))
         response, order_confirmed = kfc_agent.invoke(text)
         audio_manager.speak(response)
         audio_manager.wait_until_done()
+        app.display(StreamData(
+            stream_messages=[
+                Message(role="assistant", content=response)
+            ]
+        ))
         return order_confirmed
     
+    # Experimental Callback to stream live transcript
+    def stream_callback(text: str):
+        app.display(StreamData(
+            stream_messages=[
+                Message(role="user", content=text)
+            ]
+        ))
+    
     while True:
-        if True or wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
+        if wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
             conversation_manager.run(
                 on_open=open_callback, 
                 on_data=data_callback,
@@ -48,6 +74,7 @@ def main2(app: WebViewApp):
     
     order_cart.update_webview_manager(app)
     order_cart.update_audio_manager(audio_manager)
+    kfc_agent.update_audio_manager(audio_manager)
     
     audio_manager.play_initial_response()
     
@@ -64,14 +91,6 @@ def main2(app: WebViewApp):
 
 if __name__ == '__main__':
     app = WebViewApp()
-    main1(app)
-    # Start a separate thread for other tasks
-    # task_thread = threading.Thread(target=main2, args=(app,))
-    # task_thread.start()
-
-    # Run webview on the main thread
-    # app.run_webview()
-
-    # Join the task thread when done
-    # task_thread.join()
+    # main1(app)
+    main2(app)
 

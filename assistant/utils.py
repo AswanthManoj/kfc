@@ -22,17 +22,14 @@ class Message(BaseModel):
     role:         Optional[str] = None  # can be None, "assistant" or "user"
     content:      Optional[str] = None
     
-class StreamMessages(BaseModel):
-    is_started:   bool = False          # Indicates if the agent heard the wake word
-    current_role: Optional[str] = None
-    messages:     List[Message] = []
     
 class StreamData(BaseModel):
     menu:              List[Menu] = []
     cart:              List[Order] = []
     action:            Optional[str] = None
+    is_started:        bool = False
     total_price:       float = 0
-    stream_messages:   StreamMessages = None
+    stream_messages:   List[Message] = []
     current_menu_view: Optional[str] = None
     
     @model_validator(mode="before")

@@ -15,7 +15,7 @@ audio_manager = None
 wake_word_detector = None
 conversation_manager = None
 
-def get_kfc_agent():
+def get_kfc_agent() -> Agent:
     global agent
     if agent is None:
         agent = Agent(
@@ -25,7 +25,7 @@ def get_kfc_agent():
         )
     return agent
 
-def get_audio_manager():
+def get_audio_manager() -> AudioManager:
     global audio_manager
     if audio_manager is None:
         audio_manager = AudioManager(
@@ -36,7 +36,7 @@ def get_audio_manager():
         )
     return audio_manager
 
-def get_wakeword_detector():
+def get_wakeword_detector() -> WakeWordDetector:
     global wake_word_detector
     if wake_word_detector is None:
         wake_word_detector = WakeWordDetector(
@@ -44,11 +44,12 @@ def get_wakeword_detector():
         )
     return wake_word_detector
 
-def get_conversation_manager():
+def get_conversation_manager() -> ConversationManager:
     global conversation_manager
     if conversation_manager is None:
         conversation_manager = ConversationManager()
     return conversation_manager
+    
     
 order_cart = get_order_cart()
 order_cart.update_audio_manager(

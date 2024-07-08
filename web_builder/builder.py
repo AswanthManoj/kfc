@@ -1,4 +1,3 @@
-# import webview
 import os, base64
 import yaml, random
 from webview import Webview
@@ -6,7 +5,7 @@ from typing import List, Optional
 from jinja2 import Template, Environment
 from config import ENABLE_WEBVIEW_VERBOSITY
 from .styles import HOME_PAGE_STYLE, MENU_PAGE_STYLE
-from assistant.utils import StreamData, StreamMessages, Item
+from assistant.utils import StreamData, Message, Item
 from .templates import HOME_PAGE_TEMPLATE, MENU_PAGE_TEMPLATE
 
 
@@ -27,8 +26,29 @@ if ENABLE_WEBVIEW_VERBOSITY:
 
 
 class WebViewApp:
+    """
+    A class to manage the web view interface for the KFC Voice Assistant application.
+
+    This class handles the creation and updating of web pages, including the home page
+    and menu pages. It uses Jinja2 templates to render HTML content and manages the
+    display of menu items, cart contents, and other UI elements.
+
+    Attributes:
+        webview (Webview): The webview instance for rendering the UI.
+    """
     def __init__(self, host: str="127.0.0.1", port: int=8080, debug: bool=False, title: str="KFC Voice Assistant", log_level: str="warning"):
+        """
+        Initialize the WebViewApp with specified configuration.
+
+        Args:
+            host (str): The host address for the webview. Defaults to "127.0.0.1".
+            port (int): The port number for the webview. Defaults to 8080.
+            debug (bool): Whether to run in debug mode. Defaults to False.
+            title (str): The title of the webview window. Defaults to "KFC Voice Assistant".
+            log_level (str): The logging level for the webview. Defaults to "warning".
+        """
         self.webview = Webview
+        self.state: StreamData = None
         self.webview.configure(
             title=title, host=host, 
             port=port, debug=debug, log_level=log_level
@@ -41,9 +61,27 @@ class WebViewApp:
             print(f"WEBVIEW: Started webview")
     
     def __wrap__(self, content:str):
-        return f"<p>{content}</p>"
+        """
+        Wrap content in a paragraph tag.
+
+        Args:
+            content (str): The content to wrap.
+
+        Returns:
+            str: The wrapped content.
+        """
+        return f"<div>{content}</div>"
 
     def __get_base64_image__(self, image_path: str) -> str:
+        """
+        Convert an image file to a base64-encoded string.
+
+        Args:
+            image_path (str): The path to the image file.
+
+        Returns:
+            str: The base64-encoded image data URI.
+        """
         try:
             image_path = os.path.join(BASE_DIR, image_path)
             with open(image_path, "rb") as image_file:
@@ -57,6 +95,12 @@ class WebViewApp:
             return ""
 
     def get_home(self) -> str:
+        """
+        Generate the HTML content for the home page.
+
+        Returns:
+            str: The rendered HTML content for the home page.
+        """
         css_template = Template(HOME_PAGE_STYLE)
         html_template = Template(HOME_PAGE_TEMPLATE)
         
@@ -76,12 +120,58 @@ class WebViewApp:
             print("WEBVIEW: Home page HTML generated")
         return rendered_html
     
+    def __conversation_filter__(self, data: StreamData) -> StreamData:
+        # Initialize state if it's the first call
+        if self.state is None:
+            self.state = data
+            return data
+        
+        # Handle tool calls (when stream_messages is None)
+        if len(data.stream_messages)==0:
+            data.stream_messages = self.state.stream_messages
+            data.current_menu_view = self.state.current_menu_view
+            self.state = data
+            return self.state
+        
+        # Is either when transcription is complete or assistant response is complete.
+        if data.stream_messages:
+            
+            # If user transcription is complete
+            if data.stream_messages[-1].role=="user":
+                # This means the previous and current messages are from user so no need to append
+                if self.state.stream_messages[-1].role=="user":
+                    self.state.stream_messages[-1] = data.stream_messages[-1]
+                else:
+                    self.state.stream_messages.append(data.stream_messages[-1])  
+        
+            # If assistant response is complete
+            elif data.stream_messages[-1].role=="assistant":
+                # This means the previous and current messages are from assistant so no need to append
+                if self.state.stream_messages[-1].role=="assistant":
+                    self.state.stream_messages[-1] = data.stream_messages[-1]
+                else:
+                    self.state.stream_messages.append(data.stream_messages[-1])  
+
+            return self.state 
+                         
     def display(self, data: StreamData|str) -> bool:
+        """
+        Display the appropriate content based on the input data.
+
+        This method handles different actions like showing menus, adding items to cart, etc.
+
+        Args:
+            data (StreamData|str): The data to be displayed, either as a StreamData object or a string.
+
+        Returns:
+            bool: True if the display was successful, False otherwise.
+        """
         html_content = None
         if ENABLE_WEBVIEW_VERBOSITY:
             print(f"WEBVIEW DATA: {data}")
         try:
             if isinstance(data, StreamData):
+                data = self.__conversation_filter__(data)
                 if data.action in ["show_main_dishes", "show_side_dishes", "show_beverages"]:
                     html_content = self.generate_show_menu(data)
                     self.webview.update_view(html_content)
@@ -97,13 +187,11 @@ class WebViewApp:
                 elif data.action in ["get_cart_contents"]:
                     # Add the html renderer for get_cart_contents
                     pass
-                else:
+                elif data.action in ["confirm_order"]:
                     # Add the html renderer for confirm_order
                     pass
             else:
                 self.__wrap__(data)
-            if ENABLE_WEBVIEW_VERBOSITY:
-                print(f"WEBVIEW HTML: {html_content[:500]}...")
             return True
         except Exception as e:
             if ENABLE_WEBVIEW_VERBOSITY:
@@ -111,6 +199,15 @@ class WebViewApp:
             return False
     
     def generate_show_menu(self, data: StreamData) -> str:
+        """
+        Generate the HTML content for displaying a menu page.
+
+        Args:
+            data (StreamData): The data containing menu items and cart information.
+
+        Returns:
+            str: The rendered HTML content for the menu page.
+        """
         css_template = Template(MENU_PAGE_STYLE)
         html_template = Template(MENU_PAGE_TEMPLATE)
         menu_type_mapping = {
@@ -153,78 +250,9 @@ class WebViewApp:
             "menu_items": current_menu_items,
             "logo_image": self.__get_base64_image__(LOGO_IMAGE_PATH)
         })
-        print(rendered_html[:500])
+        if ENABLE_WEBVIEW_VERBOSITY:
+            print(f"WEBVIEW: `generate_show_menu` rendered successfully.")
         return rendered_html
 
 
 
-'''
-def generate_menu(data: StreamData) -> str:
-    func_mapping = {
-        "get_sides": "side_dishes",
-        "get_beverages": "beverages",
-        "get_main_dishes": "main_dishes",
-    }
-    title_mapping = {
-        "get_sides": "KFC Side Dishes",
-        "get_beverages": "KFC Beverages",
-        "get_main_dishes": "KFC Main Dishes",
-    }
-
-    category_title = "Menu"
-    # Generate menu items HTML
-    menu_items_html = ""
-    for menu in data.menu:
-        if menu.menu_type == func_mapping.get(data.action):
-            category_title = title_mapping.get(data.action)
-            for item in menu.items:
-                image_path = os.path.join(BASE_DIR, item.image_url_path)
-                image_data = get_base64_image(image_path)
-                if ENABLE_WEBVIEW_VERBOSITY:
-                    print("WEBVIEW Menu Item:", order)
-                menu_items_html += f"""
-                <div class="item">
-                    <img src="data:image/jpg;base64,{image_data}" alt="{item.name}">
-                    <div class="item-name">{item.name}</div>
-                    <div class="item-price">${item.price_per_unit}</div>
-                </div>
-                """
-    
-    # Generate cart items HTML
-    cart_items_html = ""
-    for order in data.cart:
-        image_path = os.path.join(BASE_DIR, order.image_url_path)
-        image_data = get_base64_image(image_path)
-        if ENABLE_WEBVIEW_VERBOSITY:
-            print("WEBVIEW Order Item:", order)
-        cart_items_html += f"""
-        <div class="cart-item">
-            <img src="data:image/jpg;base64,{image_data}" alt="{order.name}">
-            <div class="cart-item-details">
-                <div class="cart-item-name">{order.name}</div>
-                <div class="cart-item-quantity">Quantity: {order.total_quantity}</div>
-                <div class="cart-item-price">Price: ${order.price_per_unit * order.total_quantity}</div>
-            </div>
-        </div>
-        """
-    
-    html_content: str = MENU_PAGE_TEMPLATE.replace("{category}", category_title)
-    html_content = html_content.replace("{cart_items}", cart_items_html)
-    html_content = html_content.replace("{menu_items}", menu_items_html)
-    html_content = html_content.replace("{total_price}", str(data.total_price))
-    html_content = html_content.replace("{menu_item_height}", str(MENU_ITEM_HEIGHT))
-    html_content = html_content.replace("{cart_item_height}", str(CART_ITEM_HEIGHT))
-    html_content = html_content.replace("{logo_image}", f"data:image/png;base64,{logo_image_data}")
-    html_content = html_content.replace("{background_image}", f"data:image/jpg;base64,{menu_background_image_data}")
-    
-    if ENABLE_WEBVIEW_VERBOSITY:
-        print("WEBVIEW: Menu page HTML generated")
-    return html_content
-
-
-def generate_order_updates(data: StreamData) -> str:
-    pass
-    
-
-
-'''

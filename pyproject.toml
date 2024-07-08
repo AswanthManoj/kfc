@@ -23,6 +23,7 @@ pydantic = "^2.8.2"
 langchain-groq = "^0.1.6"
 assemblyai = "0.29.0"
 webview = {git = "https://github.com/AswanthManoj/webview.git"}
+langchain-openai = "^0.1.14"
 
 
 [build-system]

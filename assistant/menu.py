@@ -76,14 +76,14 @@ class KFCMenu:
         return emitted
 
     def show_side_dishes(self) -> bool:
-        action = self.show_main_dishes.__name__
+        action = self.show_side_dishes.__name__
         emitted = self.generate_intermediate_outputs(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}' Invoked")
         return emitted
 
     def show_beverages(self) -> bool:
-        action = self.show_main_dishes.__name__
+        action = self.show_beverages.__name__
         emitted = self.generate_intermediate_outputs(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}' Invoked")
@@ -119,7 +119,7 @@ class OrderCart(KFCMenu):
         if is_new:
             self.orders.append(Order(name=item_name, price_per_unit=item.price_per_unit, total_quantity=quantity))
             
-        action = self.show_main_dishes.__name__
+        action = self.add_item_to_cart.__name__
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
             
@@ -138,7 +138,7 @@ class OrderCart(KFCMenu):
                     result['remaining_quantity'] = self.orders[i].total_quantity
                 break
             
-        action = self.show_main_dishes.__name__
+        action = self.remove_item_from_cart.__name__
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
             
@@ -157,7 +157,7 @@ class OrderCart(KFCMenu):
                     result['new_quantity'] = new_quantity
                 break
             
-        action = self.show_main_dishes.__name__
+        action = self.modify_item_quantity_in_cart.__name__
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
         
@@ -170,7 +170,7 @@ class OrderCart(KFCMenu):
             "items": [{"name": order.name, "quantity": order.total_quantity} for order in self.orders]
         }
         
-        action = self.show_main_dishes.__name__
+        action = self.confirm_order.__name__
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(confirmation)}")
         
@@ -185,7 +185,7 @@ class OrderCart(KFCMenu):
             total_price += total
             contents.append({"name": order.name, "quantity": order.total_quantity, "price": total})
             
-        action = self.show_main_dishes.__name__
+        action = self.get_cart_contents.__name__
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")  
             
