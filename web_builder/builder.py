@@ -48,7 +48,6 @@ class WebViewApp:
             log_level (str): The logging level for the webview. Defaults to "warning".
         """
         self.webview = Webview
-        self.state: StreamData = None
         self.webview.configure(
             title=title, host=host, 
             port=port, debug=debug, log_level=log_level
@@ -120,38 +119,6 @@ class WebViewApp:
             print("WEBVIEW: Home page HTML generated")
         return rendered_html
     
-    def __conversation_filter__(self, data: StreamData) -> StreamData:
-        # Initialize state if it's the first call
-        if self.state is None:
-            self.state = data
-            return data
-        
-        # Handle tool calls (when stream_messages is None)
-        if not data.stream_messages:
-            data.stream_messages = self.state.stream_messages
-            data.current_menu_view = self.state.current_menu_view
-            self.state = data
-            return self.state
-        
-        # Is either when transcription is complete or assistant response is complete.
-        if data.stream_messages:
-            
-            # If user transcription is complete
-            if data.stream_messages[-1].role=="user":
-                # This means the previous and current messages are from user so no need to append
-                if self.state.stream_messages[-1].role=="user":
-                    self.state.stream_messages[-1] = data.stream_messages[-1]
-                else:
-                    self.state.stream_messages.append(data.stream_messages[-1])  
-        
-            # If assistant response is complete
-            elif data.stream_messages[-1].role=="assistant":
-                # This means the previous and current messages are from assistant so no need to append
-                if self.state.stream_messages[-1].role=="assistant":
-                    self.state.stream_messages[-1] = data.stream_messages[-1]
-                else:
-                    self.state.stream_messages.append(data.stream_messages[-1])  
-            return self.state 
                          
     def display(self, data: StreamData|str) -> bool:
         """
@@ -170,27 +137,26 @@ class WebViewApp:
             print(f"WEBVIEW DATA BEFORE STATE UPDATE: {data}")
         try:
             if isinstance(data, StreamData):
-                data = self.__conversation_filter__(data)
+
                 if ENABLE_WEBVIEW_VERBOSITY:
                     print("WEBVIEW DATA AFTER STATE UPDATE:", data)
+                    
                 if data.action in ["show_main_dishes", "show_side_dishes", "show_beverages"]:
                     html_content = self.generate_show_menu(data)
                     self.webview.update_view(html_content)
-                elif data.action in ["add_item_to_cart"]:
-                    # Add the html renderer for add_item_to_cart
-                    pass
-                elif data.action in ["remove_item_from_cart"]:
-                    # Add the html renderer for remove_item_from_cart
-                    pass
-                elif data.action in ["modify_item_quantity_in_cart"]:
-                    # Add the html renderer for modify_item_quantity_in_cart
-                    pass
+                    
+                elif data.action in ["add_item_to_cart", "remove_item_from_cart", "modify_item_quantity_in_cart"]:
+                    html_content = self.generate_cart_update(data)
+                    self.webview.update_view(html_content)
+                
                 elif data.action in ["get_cart_contents"]:
-                    # Add the html renderer for get_cart_contents
-                    pass
+                    html_content = self.generate_order_review(data)
+                    self.webview.update_view(html_content)
+                    
                 elif data.action in ["confirm_order"]:
-                    # Add the html renderer for confirm_order
-                    pass
+                    html_content = self.generate_confirmation(data)
+                    self.webview.update_view(html_content)
+                    
             else:
                 self.__wrap__(data)
             return True
@@ -255,5 +221,18 @@ class WebViewApp:
             print(f"WEBVIEW: `generate_show_menu` rendered successfully.")
         return rendered_html
 
+    def generate_cart_update(self, data: StreamData) -> str:
+        # This should be called for any cart updates and return the rendered html
+        return data.model_dump_json(indent=4)
+    
+    def generate_order_review(self, data: StreamData) -> str:
+        # This should be called to generate the order/cart review html page
+        return data.model_dump_json(indent=4)
+    
+    def generate_confirmation(self, data: StreamData) -> str:
+        # This should be called to generate the html page for order confirmation
+        return data.model_dump_json(indent=4)
+    
+    
 
 

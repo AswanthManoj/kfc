@@ -3,7 +3,7 @@ from typing import List, Optional
 from assistant.agent import AudioManager
 from config import ENABLE_TOOL_VERBOSITY
 from web_builder.builder import WebViewApp
-from assistant.utils import Item, Order, Menu, StreamData
+from assistant.utils import Item, Order, Menu, StreamData, Message
 
 
 ###############################
@@ -47,44 +47,48 @@ class KFCMenu:
     def update_audio_manager(self, audio_manager):
         self.audio_manager = audio_manager
         
-    def generate_intermediate_outputs(self, action: str) -> bool:
+    def get_view_data(self) -> StreamData:
+        self.view_data.update()
+        return self.view_data
+    
+    def add_messages_to_state(self, message: Message, is_started: bool=False) -> StreamData:
+        self.view_data.is_started =is_started
+        self.view_data.stream_messages.append(message)
+        
+    def __generate_intermediate_outputs__(self, action: str) -> bool:
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(
                 category=action
             )
         if self.webview_manager:
             self.webview_manager.display(
-                data=self.get_view_data(action)
+                data=self.__get_view_data__(action)
             )
         return True if self.webview_manager else False
         
-    def get_view_data(self, action: str=None) -> StreamData:
+    def __get_view_data__(self, action: str=None) -> StreamData:
         self.view_data.cart = self.orders
-        if action in ["add_item_to_cart", "remove_item_from_cart", "modify_item_quantity_in_cart" , "get_cart_contents"]:
-            self.view_data.current_menu_view = self.view_data.action
-        else:
-            self.view_data.current_menu_view = action
         self.view_data.action = action
         self.view_data.update()
         return self.view_data
     
     def show_main_dishes(self) -> bool:
         action = self.show_main_dishes.__name__
-        emitted = self.generate_intermediate_outputs(action)
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}' Invoked")
         return emitted
 
     def show_side_dishes(self) -> bool:
         action = self.show_side_dishes.__name__
-        emitted = self.generate_intermediate_outputs(action)
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}' Invoked")
         return emitted
 
     def show_beverages(self) -> bool:
         action = self.show_beverages.__name__
-        emitted = self.generate_intermediate_outputs(action)
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}' Invoked")
         return emitted
@@ -126,6 +130,7 @@ class OrderCart(KFCMenu):
             ))
             
         action = self.add_item_to_cart.__name__
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
             
@@ -145,6 +150,7 @@ class OrderCart(KFCMenu):
                 break
             
         action = self.remove_item_from_cart.__name__
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
             
@@ -164,6 +170,7 @@ class OrderCart(KFCMenu):
                 break
             
         action = self.modify_item_quantity_in_cart.__name__
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(result)}")
         
@@ -177,6 +184,7 @@ class OrderCart(KFCMenu):
         }
         
         action = self.confirm_order.__name__
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(confirmation)}")
         
@@ -192,6 +200,7 @@ class OrderCart(KFCMenu):
             contents.append({"name": order.name, "quantity": order.total_quantity, "price": total})
             
         action = self.get_cart_contents.__name__
+        emitted = self.__generate_intermediate_outputs__(action)
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{action}': {yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")  
             
@@ -201,7 +210,7 @@ class OrderCart(KFCMenu):
 
     def reset_cart(self) -> None:
         self.orders = []
-        self.get_view_data()
+        self.__get_view_data__()
         self.stream_messages = None
         self.current_menu_view = None
         

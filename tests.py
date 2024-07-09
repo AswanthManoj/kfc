@@ -27,18 +27,19 @@ def test_agent():
 
 def test_audio_manager():
     audio_manager = get_audio_manager()
-    audio_manager.play_initial_response()
-    audio_manager.play_disfluent_filler()
-    audio_manager.speak("This is a sample audio test")
+    # audio_manager.play_initial_response()
+    # audio_manager.play_disfluent_filler()
+    # audio_manager.speak("This is a sample audio test")
     
-    audio_manager.play_intermediate_response("add_item")
-    audio_manager.play_intermediate_response("get_sides")
-    audio_manager.play_intermediate_response("remove_item")
-    audio_manager.play_intermediate_response("get_beverages")
     audio_manager.play_intermediate_response("confirm_order")
-    audio_manager.play_intermediate_response("get_main_dishes")
-    audio_manager.play_intermediate_response("modify_quantity")
+    audio_manager.play_intermediate_response("show_beverages")
+    audio_manager.play_intermediate_response("show_side_dishes")
+    audio_manager.play_intermediate_response("show_main_dishes")
+    audio_manager.play_intermediate_response("add_item_to_cart")
     audio_manager.play_intermediate_response("get_cart_contents")
+    audio_manager.play_intermediate_response("remove_item_from_cart")
+    audio_manager.play_intermediate_response("modify_item_quantity_in_cart")
+    
     
     audio_manager.wait_until_done()
      
@@ -68,14 +69,15 @@ def test_webview():
     i=0
     while True:
         i+=1
+        # Try giving StreamData Object with contents
         app.display(f"<h2>This is a live update count {i}</h2>")
         time.sleep(1)
 
             
 if __name__=="__main__":
     # test_agent()
-    # test_audio_manager()
+    test_audio_manager()
     # test_stt_listen()
     # test_wake_word()
-    test_webview()
+    # test_webview()
     pass
