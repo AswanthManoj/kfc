@@ -38,9 +38,9 @@ WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there"]]
 # DEBUGGING #
 #############
 ENABLE_LLM_VERBOSITY = False
-ENABLE_STT_VERBOSITY = True
+ENABLE_STT_VERBOSITY = False
 ENABLE_TTS_VERBOSITY = False
-ENABLE_TOOL_VERBOSITY = True
+ENABLE_TOOL_VERBOSITY = False
 ENABLE_WEBVIEW_VERBOSITY = False
 
 
@@ -79,6 +79,9 @@ Menu:
 Use this to help customers order and give accurate item info."""
 
 
+
+
+'''
 SYSTEM_PROMPT2 = """You are 'Crunchy', a friendly KFC drive-thru assistant. Your goal is to help customers to order food efficiently and accurately from KFC.
 
 You are capable to do the following:
@@ -115,3 +118,4 @@ Remember:
 - For unavailable items, suggest alternatives.
 - Deny any questions which are off-topic to current interaction of food ordering from KFC.
 """
+'''

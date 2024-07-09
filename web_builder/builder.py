@@ -127,7 +127,7 @@ class WebViewApp:
             return data
         
         # Handle tool calls (when stream_messages is None)
-        if len(data.stream_messages)==0:
+        if not data.stream_messages:
             data.stream_messages = self.state.stream_messages
             data.current_menu_view = self.state.current_menu_view
             self.state = data
@@ -151,7 +151,6 @@ class WebViewApp:
                     self.state.stream_messages[-1] = data.stream_messages[-1]
                 else:
                     self.state.stream_messages.append(data.stream_messages[-1])  
-
             return self.state 
                          
     def display(self, data: StreamData|str) -> bool:
@@ -168,10 +167,12 @@ class WebViewApp:
         """
         html_content = None
         if ENABLE_WEBVIEW_VERBOSITY:
-            print(f"WEBVIEW DATA: {data}")
+            print(f"WEBVIEW DATA BEFORE STATE UPDATE: {data}")
         try:
             if isinstance(data, StreamData):
                 data = self.__conversation_filter__(data)
+                if ENABLE_WEBVIEW_VERBOSITY:
+                    print("WEBVIEW DATA AFTER STATE UPDATE:", data)
                 if data.action in ["show_main_dishes", "show_side_dishes", "show_beverages"]:
                     html_content = self.generate_show_menu(data)
                     self.webview.update_view(html_content)

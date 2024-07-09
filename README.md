@@ -34,36 +34,34 @@ cd kfc
 ```
 
 ---
-2. Setting up virtual environment
+2. Setting up virtual environment and installing dependencies:
 - Creating virtual environment
     ```bash 
-    python -m venv venv
+    pip install poetry
+    poetry install
     ```
 
-- Activating on windows:
-    ```bash
-    .\venv\Scripts\activate
-    ```
-
-- Activating on linux:
-    ```bash
-    source venv/bin/activate
-    ```
-    
-- Installing dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
 
 ---
-3. Set up API keys (one time):
+3. Set up API keys and environment variables:
     - Create a `.env` file in the project root folder.
-    - Go to [Assembly ai's website](https://www.assemblyai.com/), login and get an API key paste it inside `.env` file as `ASSEMBLY_API_KEY=<your-api-key>`.
-    - Go to [Deepgram's website](https://deepgram.com/), login and get an API key paste it inside `.env` file as `DEEPGRAM_API_KEY=<your-api-key>`.
-    - For llm either use groq or openai:
-        - Go to [Groq's website](https://groq.com/), login and get the API key then paste it inside `.env` as `GROQ_API_KEY=<your-api-key>`.
 
-        - Go to [Open website](https://openai.com/), login and get the API key then paste it inside `.env` as `OPENAI_API_KEY=<your-api-key>`.
+    ```bash
+    ASSEMBLY_API_KEY=<your-assemblyai-api-key>
+    DEEPGRAM_API_KEY=<your-deepgram-api-key>
+    GROQ_API_KEY=<your-groq-api-key>
+    OPENAI_API_KEY=<your-openai-api-key>
+
+    OPENAI_API_KEYS=["openai-api-key1", "openai-api-key2", ...]
+    GROQ_API_KEYS=["groq-api-key1", "groq-api-key2", ...]
+    ```
+
+    - Click [here](https://www.assemblyai.com/), to get api key from assemblyai.
+    - Click [here](https://deepgram.com/), to get api key from deepgram.
+    - For llm either use groq or openai:
+        - Click [here](https://groq.com/), to get api key from groq.
+
+        - Click [here](https://openai.com/), to get api key from openai.
 
 
 **Note:** To enable rotation of api keys for groq, set a variable `GROQ_API_KEYS=["<api-key1>", "<api-key2>", "<api-key3>"]` or `OPENAI_API_KEYS=["<api-key1>", "<api-key2>", "<api-key3>"]` in `.env` and set `ROTATE_LLM_API_KEYS` variable to be `True` in `config.py`.
@@ -71,7 +69,7 @@ cd kfc
 ---
 4. Run the application:
 ```bash
-python app.py
+poetry run python app.py
 ```
 
 ---
@@ -104,3 +102,6 @@ Contains two main functions:
     - `main2` method uses console input as user input to assistant.
 
 #### Note: All intermediate voice plays and UI updates are done from the tool calls itself from `assistant/menu.py/OrderCart` and `assistant/menu.py/KFCMenu` class's methods
+
+
+#### For debugging purposes you can enable or dissable `ENABLE_LLM_VERBOSITY`, `ENABLE_STT_VERBOSITY`, `ENABLE_TTS_VERBOSITY`, `ENABLE_TOOL_VERBOSITY`, `ENABLE_WEBVIEW_VERBOSITY` variables in `config.py` to controll individual modules verbosity.

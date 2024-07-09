@@ -112,12 +112,18 @@ class OrderCart(KFCMenu):
         for i, order in enumerate(self.orders):
             if order.name == item_name:
                 self.orders[i].total_quantity += quantity
+                self.orders[i].image_url_path = item.image_url_path
                 result['total_quantity'] = self.orders[i].total_quantity
                 result['price_per_unit'] = f"${order.price_per_unit}"
                 is_new = False
                 break
         if is_new:
-            self.orders.append(Order(name=item_name, price_per_unit=item.price_per_unit, total_quantity=quantity))
+            self.orders.append(Order(
+                name=item_name, 
+                total_quantity=quantity,
+                price_per_unit=item.price_per_unit, 
+                image_url_path=item.image_url_path
+            ))
             
         action = self.add_item_to_cart.__name__
         if ENABLE_TOOL_VERBOSITY:

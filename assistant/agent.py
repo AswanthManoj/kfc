@@ -58,6 +58,7 @@ class AudioManager:
         self.params = {"model": model_name, "encoding": "mp3"}
         self.headers = {"Content-Type": "application/json", "Authorization": f"Token {self.api_key}"}
 
+        self.disfluence_index = 0
         self.disfluencies: Dict[str, AudioSegment] = {}
         self.initial_responses: Dict[str, AudioSegment] = {}
         self.intermediate_responses: Dict[str, Dict[str, AudioSegment]] = {}
@@ -113,11 +114,13 @@ class AudioManager:
     
     def play_disfluent_filler(self):
         """Play a random disfluency audio."""
-        if random.choice([True, True]):
-            choice = random.choice(list(self.disfluencies.keys()))
-            if ENABLE_TTS_VERBOSITY:
-                print(f"TTS PRE-REC: {choice}")
-            self.__add_to_queue__(self.disfluencies[choice], 1)
+        # if random.choice([True, False]):
+        l = list(self.disfluencies.keys())
+        choice = l[self.disfluence_index%len(l)]
+        self.disfluence_index+=1
+        if ENABLE_TTS_VERBOSITY:
+            print(f"TTS PRE-REC: {choice}")
+        self.__add_to_queue__(self.disfluencies[choice], 1)
     
     def play_initial_response(self) -> str:
         """

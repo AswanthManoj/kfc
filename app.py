@@ -76,14 +76,29 @@ def main2(app: WebViewApp):
     order_cart.update_audio_manager(audio_manager)
     kfc_agent.update_audio_manager(audio_manager)
     
-    audio_manager.play_initial_response()
+    response = audio_manager.play_initial_response()
+    app.display(StreamData(
+        stream_messages=[
+            Message(role="assistant", content=response)
+        ]
+    ))
     
     while True:
         user = input("User: ")
+        app.display(StreamData(
+            stream_messages=[
+                Message(role="user", content=user)
+            ]
+        ))
         response, order_confirmed = kfc_agent.invoke(user)
         print("Assistant:", response)
         audio_manager.speak(response)
         audio_manager.wait_until_done()
+        app.display(StreamData(
+            stream_messages=[
+                Message(role="assistant", content=response)
+            ]
+        ))
         if order_confirmed:
             print("Loop Ended")
             break
