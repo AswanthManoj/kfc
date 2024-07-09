@@ -5,7 +5,7 @@ from startup import (
     get_audio_manager, get_order_cart, get_kfc_agent
 )
 from assistant.dg_transcription import ConversationManager
-from web_builder.builder import start_webview_server, display_dishes
+from web_builder.builder import start_webview_server, display
 
 
 
@@ -28,14 +28,14 @@ def main1():
         audio_manager.wait_until_done()
         order_cart.add_messages_to_state(Message(role="assistant", content=response), is_started=True)
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         
     def data_callback(text: str) -> bool:
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
         order_cart.add_messages_to_state(Message(role="user", content=text))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         response, order_confirmed = kfc_agent.invoke(text)
         audio_manager.speak(response)
@@ -43,7 +43,7 @@ def main1():
         
         order_cart.add_messages_to_state(Message(role="assistant", content=response))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         if order_confirmed:
             order_cart.reset_cart()
@@ -53,7 +53,7 @@ def main1():
     def stream_callback(text: str):
         order_cart.add_messages_to_state(Message(role="user", content=text))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
 
     
     while True:
@@ -86,14 +86,14 @@ def main2():
         audio_manager.wait_until_done()
         order_cart.add_messages_to_state(Message(role="assistant", content=response), is_started=True)
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         
     def data_callback(text: str) -> bool:
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
         order_cart.add_messages_to_state(Message(role="user", content=text))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         response, order_confirmed = kfc_agent.invoke(text)
         audio_manager.speak(response)
@@ -101,7 +101,7 @@ def main2():
         
         order_cart.add_messages_to_state(Message(role="assistant", content=response))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
         
         if order_confirmed:
             order_cart.reset_cart()
@@ -111,7 +111,7 @@ def main2():
     def stream_callback(text: str):
         order_cart.add_messages_to_state(Message(role="user", content=text))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
 
     
     while True:
@@ -140,13 +140,13 @@ def main3():
     
     order_cart.add_messages_to_state(Message(role="assistant", content=response), is_started=True)
     stream_data = order_cart.get_view_data()
-    display_dishes(stream_data)
+    display(stream_data)
     
     while True:
         user = input("User: ")
         order_cart.add_messages_to_state(Message(role="user", content=user))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
     
         response, order_confirmed = kfc_agent.invoke(user)
         print("Assistant:", response)
@@ -155,7 +155,7 @@ def main3():
         
         order_cart.add_messages_to_state(Message(role="assistant", content=response))
         stream_data = order_cart.get_view_data()
-        display_dishes(stream_data)
+        display(stream_data)
 
         if order_confirmed:
             order_cart.reset_cart()

@@ -43,6 +43,12 @@ body, html {
 }
 """
 
+
+
+
+##############################
+# DEPRECATED MENU PAGE STYLE #
+##############################
 MENU_PAGE_STYLE = """
 body { 
     font-family: Arial, sans-serif; 

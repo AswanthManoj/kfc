@@ -162,3 +162,4 @@ cython_debug/
 #.idea/
 
 index.html
+templates_test.py

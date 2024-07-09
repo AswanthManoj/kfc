@@ -1,10 +1,10 @@
 import yaml
 from typing import List, Optional
+from web_builder.builder import display
 from assistant.agent import AudioManager
-# from web_builder.builder import WebViewApp
 from config import ENABLE_TOOL_VERBOSITY, ENABLE_TTS_VERBOSITY
 from assistant.utils import Item, Order, Menu, StreamData, Message
-from web_builder.builder import display_dishes, display_order_review, display_confirmation
+
 
 
 ###############################
@@ -51,7 +51,7 @@ class KFCMenu:
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}' Invoked")
@@ -63,7 +63,7 @@ class KFCMenu:
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}' Invoked")
@@ -75,7 +75,7 @@ class KFCMenu:
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}' Invoked")
@@ -123,7 +123,7 @@ class OrderCart(KFCMenu):
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(result)}")
@@ -147,7 +147,7 @@ class OrderCart(KFCMenu):
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(result)}")
@@ -171,7 +171,7 @@ class OrderCart(KFCMenu):
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_dishes(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(result)}")
@@ -189,7 +189,7 @@ class OrderCart(KFCMenu):
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_confirmation(view_data)
+        display(view_data)
        
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(confirmation)}")
@@ -209,7 +209,7 @@ class OrderCart(KFCMenu):
         if self.audio_manager:
             self.audio_manager.play_intermediate_response(self.action)
         view_data = self.get_view_data()
-        display_order_review(view_data)
+        display(view_data)
         
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(contents)}\n\nTotal Price of items: ${total_price}")  
@@ -223,6 +223,8 @@ class OrderCart(KFCMenu):
         self.is_started = False
         self.stream_messages = []
         self.orders: List[Order] = []
+        view_data = self.get_view_data()
+        display(view_data)
 
         
 class SingletonMeta(type):

@@ -1,11 +1,12 @@
+import random
 import os, base64
-import yaml, random
+from typing import List
+from jinja2 import Template
 from webview import Webview
-from typing import List, Optional
-from jinja2 import Template, Environment
+from .styles import HOME_PAGE_STYLE
 from config import ENABLE_WEBVIEW_VERBOSITY
-from .styles import HOME_PAGE_STYLE, MENU_PAGE_STYLE
-from assistant.utils import StreamData, Message, Item, Order
+from assistant.utils import StreamData, Item, Order
+from .tailwind_menu_page_style import MENU_PAGE_STYLE
 from .templates import HOME_PAGE_TEMPLATE, MENU_PAGE_TEMPLATE, ORDER_REVIEW_PAGE_TEMPLATE
 
 
@@ -44,10 +45,26 @@ def get_base64_image(image_path: str) -> str:
             print(f"WEBVIEW: Successfully encoded image: {image_path}, encoded data length: {len(encoded_data)}")
         return f"data:image/png;base64,{encoded_data}"
 
+def display(data: StreamData):
+    rendered_html = ""
+    if data.action is None:
+        rendered_html = display_home_page()
+    elif data.action in ["show_beverages", "show_main_dishes", "show_side_dishes", \
+        "add_item_to_cart", "remove_item_from_cart", "modify_item_quantity_in_cart"]:
+        rendered_html = display_dishes(data)
+    elif data.action == "get_cart_contents":
+        rendered_html = display_order_review(data)
+    elif data.action == "confirm_order":
+        rendered_html = display_confirmation(data)
+    else:
+        rendered_html = display_data_dump(data)
+        
+    Webview.update_view(rendered_html)
+    return True
+
 def display_home_page() -> str:
     css_template = Template(HOME_PAGE_STYLE)
     html_template = Template(HOME_PAGE_TEMPLATE)
-    
     rendered_css = css_template.render({
         "background_image": get_base64_image(HOME_BACKGROUND_IMAGE)
     })
@@ -60,55 +77,8 @@ def display_home_page() -> str:
             "Speak up for finger-lickin' good!",
         ])
     })
-    Webview.update_view(rendered_html)
     return rendered_html
-    
-                         
-    def display(self, data: StreamData|str) -> bool:
-        """
-        Display the appropriate content based on the input data.
 
-        This method handles different actions like showing menus, adding items to cart, etc.
-
-        Args:
-            data (StreamData|str): The data to be displayed, either as a StreamData object or a string.
-
-        Returns:
-            bool: True if the display was successful, False otherwise.
-        """
-        html_content = None
-        if ENABLE_WEBVIEW_VERBOSITY:
-            print(f"WEBVIEW DATA: {data}")
-        print("From webview: ", data.action)
-        try:
-            if isinstance(data, StreamData):
-                    
-                html_content = self.generate_show_menu(data)
-                self.webview.update_view(html_content)
-                # if data.action in ["show_main_dishes", "show_side_dishes", "show_beverages"]:
-                #     html_content = self.generate_show_menu(data)
-                #     self.webview.update_view(html_content)
-                    
-                # elif data.action in ["add_item_to_cart", "remove_item_from_cart", "modify_item_quantity_in_cart"]:
-                #     html_content = self.generate_cart_update(data)
-                #     self.webview.update_view(html_content)
-                
-                # elif data.action in ["get_cart_contents"]:
-                #     html_content = self.generate_order_review(data)
-                #     self.webview.update_view(html_content)
-                    
-                # elif data.action in ["confirm_order"]:
-                #     html_content = self.generate_confirmation(data)
-                #     self.webview.update_view(html_content)
-                    
-            else:
-                self.__wrap__(data)
-            return True
-        except Exception as e:
-            if ENABLE_WEBVIEW_VERBOSITY:
-                print(f"Error in display method: {str(e)}")
-            return False
-    
 def display_dishes(data: StreamData) -> str:
     css_template = Template(MENU_PAGE_STYLE)
     html_template = Template(MENU_PAGE_TEMPLATE)
@@ -146,30 +116,40 @@ def display_dishes(data: StreamData) -> str:
             image_url_path=get_base64_image(order.image_url_path),
         ) for order in data.cart
     ]
+    
+    turn1, turn2, role1, role2 = "", "", "", ""
+    if len(data.stream_messages)>1:
+        role1 = data.stream_messages[-2].role
+        turn1 = data.stream_messages[-2].content
+        role2 = data.stream_messages[-1].role
+        turn2 = data.stream_messages[-1].content
+        role1 = "AI:" if role1=='assistant' else "You:" 
+        role2 = "AI:" if role2=='assistant' else "You:" 
+    elif data.stream_messages:
+        role1 = data.stream_messages[-1].role
+        turn1 = data.stream_messages[-1].content
+        role1 = "AI:" if role1=='assistant' else "You:"
         
-    rendered_css = css_template.render({
-        "menu_item_height": MENU_ITEM_HEIGHT,
-        "cart_item_height": CART_ITEM_HEIGHT,
-        "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
-    })
+    rendered_css = css_template.render({})
 
     rendered_html = html_template.render({
+        "role1": role1,
+        "role2": role2,
+        "turn1": turn1,
+        "turn2": turn2,
         "css": rendered_css,
         "cart_items": cart_items,
         "category": category_title,
         "total_price": data.total_price,
         "menu_items": current_menu_items,
-        "logo_image": get_base64_image(LOGO_IMAGE_PATH)
+        "logo_image": get_base64_image(LOGO_IMAGE_PATH),
+        "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
     })
     if ENABLE_WEBVIEW_VERBOSITY:
         print(f"WEBVIEW: `generate_show_menu` rendered successfully.")
     Webview.update_view(rendered_html)
     return rendered_html
 
-def generate_cart_update(data: StreamData) -> str:
-    # This should be called for any cart updates and return the rendered html
-    return data.model_dump_json(indent=4)
-    
 def display_order_review(data: StreamData) -> str:
     css_template = Template(MENU_PAGE_STYLE)
     html_template = Template(ORDER_REVIEW_PAGE_TEMPLATE)
@@ -206,5 +186,5 @@ def display_confirmation(data: StreamData) -> str:
     Webview.update_view(rendered_html)
     return rendered_html
    
-def view_data_dump(data: StreamData):
+def display_data_dump(data: StreamData):
     Webview.update_view(data.model_dump_json()) 
