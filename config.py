@@ -9,10 +9,10 @@ if not os.path.exists("downloads"):
 #################
 # MODELS PARAMS #
 #################
-# STT_MODEL = "nova-2"
-ROTATE_LLM_API_KEYS = True
-LLM_MODEL = "gpt-4o" # "gemma2-9b-it"# "llama3-8b-8192"
+STT_MODEL = "nova-2"            # Optional if stt backend is of deepgram
+LLM_MODEL = "gpt-4o"            # "gemma2-9b-it"# "llama3-8b-8192"
 TTS_MODEL = "aura-asteria-en"
+ROTATE_LLM_API_KEYS = True
 
 
 #############################
@@ -30,7 +30,7 @@ RATE = 16000
 CHANNELS = 1
 WAKE_WAIT_DELAY = 1.2
 WAKE_WORD_MODEL = "openai/whisper-tiny.en"
-WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there"]]
+WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there", "Hello K F C", "hi k f c"]]
 
 
 
