@@ -4,7 +4,7 @@ from startup import (
     get_audio_manager, get_kfc_agent, 
     get_conversation_manager, get_wakeword_detector, get_order_cart
 )
-from web_builder.builder import WebViewApp
+from web_builder.builder import start_webview_server
 
 config.ENABLE_TTS_VERBOSITY = True
 config.ENABLE_LLM_VERBOSITY = True
@@ -65,12 +65,12 @@ def test_wake_word():
             break
         
 def test_webview():
-    app = WebViewApp()
+    view = start_webview_server()
     i=0
     while True:
         i+=1
         # Try giving StreamData Object with contents
-        app.display(f"<h2>This is a live update count {i}</h2>")
+        view.update_view(f"<h2>This is a live update count {i}</h2>")
         time.sleep(1)
 
             

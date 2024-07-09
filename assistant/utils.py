@@ -30,7 +30,6 @@ class StreamData(BaseModel):
     is_started:        bool = False
     total_price:       float = 0
     stream_messages:   List[Message] = []
-    current_menu_view: Optional[str] = None
     
     @model_validator(mode="before")
     def calculate_total_price(cls, values):

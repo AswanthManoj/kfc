@@ -46,3 +46,26 @@ MENU_PAGE_TEMPLATE = """
     </div>
 """
 
+CONFIRMATION_PAGE_TEMPLATE = """
+"""
+
+ORDER_REVIEW_PAGE_TEMPLATE = """
+    <style>
+        {{ css }}
+    </style>
+    <div class="background"></div>
+    <div class="menu">
+        <img src="{{ logo_image }}" alt="KFC Logo" class="logo">
+        <div class="category">Your Cart</div>
+        <div class="menu-grid">
+            {% for item in cart_items %}
+            <div class="item">
+                <img src="{{ item.image_url_path }}" alt="{{ item.name }}">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-price">Quantity: {{ item.total_quantity }} | Total price of Item {{ item.price_per_unit * item.total_quantity }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <h1>Total Price: ${{ total_price }}</h1>
+    </div>
+"""

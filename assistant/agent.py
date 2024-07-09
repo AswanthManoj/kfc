@@ -4,13 +4,14 @@ import numpy as np
 from io import BytesIO
 import sounddevice as sd
 import assemblyai as aai
+from webview import Webview
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
-from web_builder.builder import WebViewApp
+# from web_builder.builder import WebViewApp
 from assistant.utils import StreamData, Menu
 import requests, os, queue, random, time, threading
 from langchain_core.messages import ( 
@@ -253,8 +254,7 @@ class Agent:
                     raise ("To enable api key rotation, a list of api keys are required to be set in the `.env`. `GROQ_API_KEYS=['api-key1', 'api-key2']`")
             else:
                 self.api_keys = ast.literal_eval(api_keys)
-            
-    
+             
     def rotate_key(self, keys: List[str], idx: int):
         key = keys[idx%len(keys)]
         if self.backend=="oai":
@@ -330,8 +330,8 @@ class Agent:
             if ROTATE_LLM_API_KEYS:
                 self.rotate_key(self.api_keys, tries)
             tries+=1
-            if self.audio_manager is not None:
-                self.audio_manager.play_disfluent_filler()
+            # if self.audio_manager is not None:
+            #     self.audio_manager.play_disfluent_filler()
             response: AIMessage = self.agent.invoke(self.messages)
             self.messages.append(response)
             
