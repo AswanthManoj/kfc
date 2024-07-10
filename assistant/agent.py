@@ -502,11 +502,11 @@ class ConversationManager:
     def stop_buffer_listening(self):
         self.is_listening=False
         
-    def listen_with_buffer(self):
+    def process_with_buffer(self):
         full_transcript = self.get_from_buffer()
+        self.clear_buffer()
         finished = self.assistant_action(full_transcript)
         if not finished:
-            self.clear_buffer()
             self.start_buffer_listening()
             if ENABLE_STT_VERBOSITY:
                 print("STT: Started listening...")
@@ -517,17 +517,16 @@ class ConversationManager:
     def on_data_without_close(self, transcript: aai.RealtimeTranscript):
         if not transcript.text:
             return
-        if isinstance(transcript, aai.RealtimeFinalTranscript):
+        if isinstance(transcript, aai.RealtimeFinalTranscript) and self.is_listening:
             self.add_to_buffer(transcript.words)
             self.stop_buffer_listening()
             if ENABLE_STT_VERBOSITY:
                 print(f"STT: Stop listening | {transcript.text}")
             
-            thread = threading.Thread(target=self.listen_with_buffer)
+            thread = threading.Thread(target=self.process_with_buffer)
             thread.start()
-        else:
-            if self.is_listening:
-                self.add_to_buffer(transcript.words)
+        elif self.is_listening:
+            self.add_to_buffer(transcript.words)
             
     def on_error(self, error: aai.RealtimeError):
         if ENABLE_STT_VERBOSITY:
