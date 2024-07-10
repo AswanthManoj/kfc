@@ -12,7 +12,6 @@ from config import SYSTEM_PROMPT
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
-# from web_builder.builder import WebViewApp
 from assistant.utils import StreamData, Menu
 import requests, os, queue, random, time, threading
 from langchain_core.messages import ( 
@@ -358,28 +357,7 @@ class Agent:
        
         
 class MicrophoneStream:
-    """
-    A class that provides a streaming interface for microphone input.
-
-    This class captures audio from the microphone, buffers it, and provides
-    methods to stream the audio data. It supports pausing and resuming the
-    audio capture, as well as writing the audio to WAV files.
-
-    Attributes:
-        sample_rate (int): The sample rate of the audio capture.
-        chunk_size (int): The size of each audio chunk in frames.
-        file_duration (int): The duration of each WAV file in seconds.
-
-    """
     def __init__(self, sample_rate: int=44100, chunk_size: int=4410, file_duration: int=5):
-        """
-        Initialize the MicrophoneStream.
-
-        Args:
-            sample_rate (int): The sample rate of the audio capture. Defaults to 44100.
-            chunk_size (int): The size of each audio chunk in frames. Defaults to 4410.
-            file_duration (int): The duration of each WAV file in seconds. Defaults to 5.
-        """
         self.file_index = 0
         self.frames_written = 0
         self.chunk_size = chunk_size
@@ -390,20 +368,16 @@ class MicrophoneStream:
             channels=1,
             blocksize=self.chunk_size,
             samplerate=self.sample_rate,
-            callback=self.__audio_callback__
+            callback=self.audio_callback
         )
 
         self.stream.start()
         self._open = True
-        self._paused = False
         if ENABLE_STT_VERBOSITY:
             print("STT: Audio stream started.")
-        self.__prepare_new_file__()
+        self.prepare_new_file()
     
-    def __prepare_new_file__(self):
-        """
-        Prepare a new WAV file for writing audio data.
-        """
+    def prepare_new_file(self):
         self.current_file = wave.open(f"part_{self.file_index}.wav", 'wb')
         self.current_file.setnchannels(1)
         self.current_file.setsampwidth(2)  # Assuming 16-bit audio
@@ -411,89 +385,45 @@ class MicrophoneStream:
         self.frames_written = 0
         self.file_index += 1
     
-    def __audio_callback__(self, indata, frames, time, status):
-        """
-        Callback function for the sounddevice InputStream.
-
-        Args:
-            indata (numpy.ndarray): The input audio data.
-            frames (int): The number of frames in the input.
-            time (CData): The timestamps of the input.
-            status (CallbackFlags): Indicates if an error occurred.
-        """
+    def audio_callback(self, indata, frames, time, status):
         if status and ENABLE_STT_VERBOSITY:
             print(f"STT: Status: {status}")
-        if not self._paused:
-            audio_bytes = (indata * 32767).astype(np.int16).tobytes()
-            self.audio_buffer.put(audio_bytes)
+        audio_bytes = (indata * 32767).astype(np.int16).tobytes()
+        self.audio_buffer.put(audio_bytes)
     
-    def __write_to_file__(self):
-        """
-        Write buffered audio data to the current WAV file.
-        """
+    def write_to_file(self):
         while not self.audio_buffer.empty():
             data = self.audio_buffer.get()
             self.current_file.writeframes(data)
             self.frames_written += len(data)
             if self.frames_written >= self.sample_rate * self.file_duration:
                 self.current_file.close()
-                self.__prepare_new_file__()
+                self.prepare_new_file()
                 
-    def __read__(self, size):
-        """
-        Read a chunk of audio data from the buffer.
-
-        Args:
-            size (int): The number of bytes to read.
-
-        Returns:
-            bytes: The audio data.
-        """
+    def read(self, size):
         requested_frames = size // 2
         frames_to_deliver = b''
         while len(frames_to_deliver) < size:
-            if self._paused:
-                return np.zeros(size, dtype='int16').tobytes()
-            try:
-                frames_to_deliver += self.audio_buffer.get(timeout=0.5)
-            except queue.Empty:
-                if not self._open:
-                    break
-                return np.zeros(size, dtype='int16').tobytes()
+            frames_to_deliver += self.audio_buffer.get()
         return frames_to_deliver[:size]
 
     def __iter__(self):
-        """
-        Return the iterator object (self).
-
-        Returns:
-            MicrophoneStream: The iterator object.
-        """
         return self
 
     def __next__(self):
-        """
-        Get the next chunk of audio data.
-
-        Returns:
-            bytes: The next chunk of audio data.
-
-        Raises:
-            StopIteration: If the stream is closed or no more data is available.
-        """
-        if not self._open:
+        if self._open:
+            try:
+                data = self.read(self.chunk_size)
+                if data:
+                    return data
+                else:
+                    raise StopIteration
+            except queue.Empty:
+                raise StopIteration
+        else:
             raise StopIteration
-        
-        data = self.__read__(self.chunk_size)
-        if not data:
-            raise StopIteration
-        
-        return data
 
     def close(self):
-        """
-        Close the audio stream and associated resources.
-        """
         self.stream.stop()
         self.stream.close()
         self._open = False
@@ -502,157 +432,70 @@ class MicrophoneStream:
         self.current_file.close()
         
     def run(self):
-        """
-        Run the main loop of the MicrophoneStream, continuously writing audio to file.
-        """
         try:
             while self._open:
-                self.__write_to_file__()
+                self.write_to_file()
         finally:
             self.close()
 
-    def pause(self):
-        """
-        Pause the audio capture.
-        """
-        self._paused = True
-        if ENABLE_STT_VERBOSITY:
-            print("STT: Recording paused.")
-
-    def resume(self):
-        """
-        Resume the audio capture.
-        """
-        self._paused = False
-        if ENABLE_STT_VERBOSITY:
-            print("Recording resumed.")
 
 
 
 class ConversationManager:
-    """
-    Manages the conversation flow, including speech-to-text transcription.
-
-    This class handles real-time transcription of audio and triggers
-    appropriate callbacks for conversation management. It uses AssemblyAI's
-    real-time transcription API to convert speech to text and manages the
-    microphone input stream.
-
-    Attributes:
-        transcriber (aai.RealtimeTranscriber): The AssemblyAI real-time transcriber.
-        is_speaking (bool): Flag indicating whether the user is currently speaking.
-        microphone_stream (MicrophoneStream): The microphone input stream.
-        end_utterance_silence_threshold (Optional[int]): Threshold for end of utterance detection.
-    """
-    def __init__(self, end_utterance_silence_threshold: Optional[int]=None):
-        """Initialize the ConversationManager.
-        
-        Args:
-            end_utterance_silence_threshold (optional[str]): The threshold to control end of utterance detection.
-        """
-        self.transcriber = None
-        self.is_speaking = False
-        self.run_callback_in_thread =False
-        self.microphone_stream: MicrophoneStream = None
-        aai.settings.api_key = os.getenv("ASSEMBLY_API_KEY")
-        self.end_utterance_silence_threshold = end_utterance_silence_threshold
+    def __init__(self):
+        self.buffer=[]
+        self.transcriber=None
+        self.is_speaking=False
+        self.run_callback_in_thread=False
+        self.end_utterance_silence_threshold=None
+        aai.settings.api_key=os.getenv("ASSEMBLY_API_KEY")
 
     def on_open(self, session_opened: aai.RealtimeSessionOpened):
-        """
-        Callback method triggered when the transcription session is opened.
-
-        Args:
-            session_opened (aai.RealtimeSessionOpened): Object containing session information.
-        """
-        if ENABLE_STT_VERBOSITY:
-            print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
-        if self.open_callback:
-            self.open_callback()
+        # if ENABLE_STT_VERBOSITY:
+        print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
        
     def on_data(self, transcript: aai.RealtimeTranscript):
-        """
-        Callback method triggered when new transcription data is received.
-
-        This method handles final transcripts, pauses the microphone stream,
-        calls the data callback if set, and resumes the microphone stream.
-
-        Args:
-            transcript (aai.RealtimeTranscript): The received transcript data.
-        """
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
-            if ENABLE_STT_VERBOSITY:
-                print(f"STT: {transcript.text}")
-            
-            if self.data_callback:
-                self.microphone_stream.pause()
-                if self.run_callback_in_thread:
-                    threading.Thread(target=self.run_data_callback, args=(transcript.text,)).start()
-                else:
-                    close = self.data_callback(transcript.text)   
-                    if close:
-                        self.microphone_stream.close()
-                        self.transcriber.close()
-                        if ENABLE_STT_VERBOSITY:
-                            print("STT: Closed connection for listening.")
-                    self.microphone_stream.resume()
-                
+            print(f"STT: {transcript.text}")
+            self.stop_listening()
+            finished = self.assistant_action(transcript.text)
+            if not finished:
+                self.start_listening()
+            print("Conversation terminated as the user confirmed the order")
         else:
-            self.stream_callback(transcript.text)
-
-    def run_data_callback(self, transcript: str):
-        close = self.data_callback(transcript.text)   
-        if close:
-            self.microphone_stream.close()
-            self.transcriber.close()
-            if ENABLE_STT_VERBOSITY:
-                print("STT: Closed connection for listening.")
+            print(f"STT Stream: {transcript.text}", end="\r")
             
     def on_error(self, error: aai.RealtimeError):
-        """
-        Callback method triggered when an error occurs during transcription.
-
-        Args:
-            error (aai.RealtimeError): The error that occurred.
-        """
-        if ENABLE_STT_VERBOSITY:
-            print("STT: An error occurred:", error)
+        print("STT: An error occurred:", error)
 
     def on_close(self):
-        """
-        Callback method triggered when the transcription session is closed.
-        """
-        if ENABLE_STT_VERBOSITY:
-            print("STT: Closed connection for listening")
+        print("STT: Closed connection for listening")
+          
+    def stop_listening(self):
+        if self.transcriber:
+            self.transcriber.close()
+            self.transcriber = None
             
-    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None, on_stream: Optional[Callable]=None, end_utterance_threshold: Optional[int]=None, run_callback_in_thread: Optional[bool]=False):
-        self.open_callback=on_open
-        self.data_callback=on_data
-        self.stream_callback = on_stream
-        self.run_callback_in_thread = run_callback_in_thread
-        
+    def start_listening(self):
         self.transcriber = aai.RealtimeTranscriber(
             sample_rate=44_100,
             on_data=self.on_data,
             on_open=self.on_open,
             on_close=self.on_close,
             on_error=self.on_error,
-            end_utterance_silence_threshold=self.end_utterance_silence_threshold or end_utterance_threshold
+            end_utterance_silence_threshold=1000
         )
         self.transcriber.connect()
-        if ENABLE_STT_VERBOSITY:
-            print("STT: Connected to assembly ai socket endpoint.")
+        microphone_stream = MicrophoneStream(sample_rate=16000)
+        self.transcriber.stream(microphone_stream)
+     
+    def interact(self, assistant_action: Callable) -> bool:
+        self.assistant_action = assistant_action
+        self.start_listening()
+        return True
         
-        try:
-            self.microphone_stream = MicrophoneStream(sample_rate=16_000)
-            self.transcriber.stream(self.microphone_stream)
-        finally:
-            self.transcriber.close()
-            self.microphone_stream.close()
-            if ENABLE_STT_VERBOSITY:
-                print("STT: Transcriber and microphone is closing.")
-
 
 
 class WakeWordDetector:
