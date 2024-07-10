@@ -10,6 +10,7 @@ import assemblyai as aai
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
+from assemblyai import RealtimeWord
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
@@ -21,8 +22,9 @@ from langchain_core.messages import (
 from typing import List, Dict, Optional, Tuple, Callable
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
-from config import ( CHANNELS, ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, STT_MICROPHONE_BACKEND, CONVERSATION_FILE_NAME,
-    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, STT_MODEL_SAMPLE_RATE, WAKE_SAMPLE_RATE, AUTO_LISTEN_WITHOUT_CLOSE
+from config import ( CHANNELS, ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, STT_MICROPHONE_BACKEND, 
+    CONVERSATION_FILE_NAME, ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, 
+    STT_MODEL_SAMPLE_RATE, WAKE_SAMPLE_RATE, AUTO_LISTEN_WITHOUT_CLOSE, STT_WORD_PROB_BOOSTS
 )
 
 
@@ -373,7 +375,6 @@ class Agent:
         return response.content, is_order_confirmed
 
        
-       
         
 class MicrophoneStream:
     def __init__(self, sample_rate: int=44100, chunk_size: int=4410, file_duration: int=5):
@@ -459,7 +460,6 @@ class MicrophoneStream:
 
 
 
-
 class ConversationManager:
     def __init__(self):
         self.buffer=[]
@@ -490,6 +490,9 @@ class ConversationManager:
     def get_from_buffer(self) -> str:
         return "".join(self.buffer)
     
+    def add_to_buffer(self, words:List[RealtimeWord]):
+        self.buffer.append(words[-1].text)
+    
     def clear_buffer(self):
         self.buffer = []
         
@@ -515,6 +518,7 @@ class ConversationManager:
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
+            self.add_to_buffer(transcript.words)
             self.stop_buffer_listening()
             if ENABLE_STT_VERBOSITY:
                 print(f"STT: Stop listening | {transcript.text}")
@@ -523,7 +527,7 @@ class ConversationManager:
             thread.start()
         else:
             if self.is_listening:
-                self.buffer.append(transcript.text)
+                self.add_to_buffer(transcript.words)
             
     def on_error(self, error: aai.RealtimeError):
         if ENABLE_STT_VERBOSITY:
@@ -545,6 +549,7 @@ class ConversationManager:
             on_error=self.on_error,
             sample_rate=STT_MODEL_SAMPLE_RATE,
             end_utterance_silence_threshold=STT_END_OF_UTTERANCE_THRESHOLD,
+            word_boost=STT_WORD_PROB_BOOSTS if STT_WORD_PROB_BOOSTS else [],
             on_data=self.on_data_without_close if AUTO_LISTEN_WITHOUT_CLOSE else self.on_data,
         )
         self.transcriber.connect()

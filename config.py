@@ -16,7 +16,11 @@ TTS_MODEL = "aura-asteria-en"
 STT_MODEL_SAMPLE_RATE = 44000
 STT_END_OF_UTTERANCE_THRESHOLD = 1000
 STT_MICROPHONE_BACKEND = "sounddevice"     # Set to `pyaudio` or `sounddevice` 
-
+STT_WORD_PROB_BOOSTS = [
+    "side dishes", "main dishes", "cart", "pepsi", "iced tea", "order", "hot dog",
+    "confirm", "mountain dew", "coleslaw", "french fries", "mac and cheese", "add", "remove",
+    "cream cheese", "mashed potatoes", "chizza", "burger", "saucy chicken", "drumstick", "show"
+]
 
 #############################
 # PRE-RECORDED SOUNDS PATHS #
