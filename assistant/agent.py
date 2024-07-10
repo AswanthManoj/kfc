@@ -1,11 +1,12 @@
-import wave
+
+import json
+import wave, os
 import threading
 import ast, queue
 import numpy as np
 from io import BytesIO
 import sounddevice as sd
 import assemblyai as aai
-from webview import Webview
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
@@ -18,12 +19,12 @@ from langchain_core.messages import (
     AIMessage, HumanMessage, SystemMessage, ToolMessage
 )
 from typing import List, Dict, Optional, Tuple, Callable
-from assemblyai.extras import AssemblyAIExtrasNotInstalledError
-from config import ( RATE, CHANNELS, ROTATE_LLM_API_KEYS,
-    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY
-)
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
+from config import ( CHANNELS, ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, STT_MICROPHONE_BACKEND, CONVERSATION_FILE_NAME,
+    ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, STT_MODEL_SAMPLE_RATE, WAKE_SAMPLE_RATE, AUTO_LISTEN_WITHOUT_CLOSE
+)
+
 
 
 
@@ -223,7 +224,25 @@ class Agent:
         
     def update_audio_manager(self, audio_manager: AudioManager):
         self.audio_manager = audio_manager
-    
+        
+    def save_interaction(self):
+        if CONVERSATION_FILE_NAME:
+            messages = [dict(role=msg.type, content=msg.content) for msg in self.messages] if self.messages else []
+            existing_data = []
+            if os.path.exists(CONVERSATION_FILE_NAME):
+                with open(CONVERSATION_FILE_NAME, 'r') as f:
+                    existing_data = json.load(f)
+                if not isinstance(existing_data, list):
+                    existing_data = []
+            if messages:
+                existing_data.append(messages)
+            try:
+                with open(CONVERSATION_FILE_NAME, 'w') as f:
+                    json.dump(existing_data, f, indent=4)
+                print(f"Successfully saved interaction to {CONVERSATION_FILE_NAME}")
+            except IOError:
+                print(f"Error saving to {CONVERSATION_FILE_NAME}")
+        
     def set_llm_engine(self, model_name: str):
         self.backend = "oai"
         if "gpt" in model_name:
@@ -330,8 +349,8 @@ class Agent:
             if ROTATE_LLM_API_KEYS:
                 self.rotate_key(self.api_keys, tries)
             tries+=1
-            # if self.audio_manager is not None:
-            #     self.audio_manager.play_disfluent_filler()
+            if self.audio_manager is not None:
+                self.audio_manager.play_disfluent_filler()
             response: AIMessage = self.agent.invoke(self.messages)
             self.messages.append(response)
             
@@ -445,55 +464,103 @@ class ConversationManager:
     def __init__(self):
         self.buffer=[]
         self.transcriber=None
-        self.is_speaking=False
+        self.is_listening=False
         self.run_callback_in_thread=False
         self.end_utterance_silence_threshold=None
         aai.settings.api_key=os.getenv("ASSEMBLY_API_KEY")
 
     def on_open(self, session_opened: aai.RealtimeSessionOpened):
-        # if ENABLE_STT_VERBOSITY:
-        print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
+        if ENABLE_STT_VERBOSITY:
+            print(f"STT: Starting up assistant with session id: {session_opened.session_id}")
        
     def on_data(self, transcript: aai.RealtimeTranscript):
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
-            print(f"STT: {transcript.text}")
-            self.stop_listening()
+            self.stop_transcriber()
+            if ENABLE_STT_VERBOSITY:
+                print(f"STT: Stop listening | {transcript.text}")
+            
             finished = self.assistant_action(transcript.text)
             if not finished:
-                self.start_listening()
-            print("Conversation terminated as the user confirmed the order")
+                self.start_transcriber()
+                if ENABLE_STT_VERBOSITY:
+                    print("STT: Started listening...")
+    
+    def get_from_buffer(self) -> str:
+        return "".join(self.buffer)
+    
+    def clear_buffer(self):
+        self.buffer = []
+        
+    def start_buffer_listening(self):
+        self.is_listening=True
+        
+    def stop_buffer_listening(self):
+        self.is_listening=False
+        
+    def listen_with_buffer(self):
+        full_transcript = self.get_from_buffer()
+        finished = self.assistant_action(full_transcript)
+        if not finished:
+            self.clear_buffer()
+            self.start_buffer_listening()
+            if ENABLE_STT_VERBOSITY:
+                print("STT: Started listening...")
         else:
-            print(f"STT Stream: {transcript.text}", end="\r")
+            self.clear_buffer()
+            self.stop_transcriber()
+    
+    def on_data_without_close(self, transcript: aai.RealtimeTranscript):
+        if not transcript.text:
+            return
+        if isinstance(transcript, aai.RealtimeFinalTranscript):
+            self.stop_buffer_listening()
+            if ENABLE_STT_VERBOSITY:
+                print(f"STT: Stop listening | {transcript.text}")
+            
+            thread = threading.Thread(target=self.listen_with_buffer)
+            thread.start()
+        else:
+            if self.is_listening:
+                self.buffer.append(transcript.text)
             
     def on_error(self, error: aai.RealtimeError):
-        print("STT: An error occurred:", error)
+        if ENABLE_STT_VERBOSITY:
+            print("STT: An error occurred:", error)
 
     def on_close(self):
-        print("STT: Closed connection for listening")
+        if ENABLE_STT_VERBOSITY:
+            print("STT: Closed connection for listening")
           
-    def stop_listening(self):
+    def stop_transcriber(self):
         if self.transcriber:
             self.transcriber.close()
             self.transcriber = None
             
-    def start_listening(self):
+    def start_transcriber(self):
         self.transcriber = aai.RealtimeTranscriber(
-            sample_rate=44_100,
-            on_data=self.on_data,
             on_open=self.on_open,
             on_close=self.on_close,
             on_error=self.on_error,
-            end_utterance_silence_threshold=1000
+            sample_rate=STT_MODEL_SAMPLE_RATE,
+            end_utterance_silence_threshold=STT_END_OF_UTTERANCE_THRESHOLD,
+            on_data=self.on_data_without_close if AUTO_LISTEN_WITHOUT_CLOSE else self.on_data,
         )
         self.transcriber.connect()
-        microphone_stream = MicrophoneStream(sample_rate=16000)
+        if STT_MICROPHONE_BACKEND=="sounddevice":
+            microphone_stream = MicrophoneStream(sample_rate=STT_MODEL_SAMPLE_RATE)
+        elif STT_MICROPHONE_BACKEND=="pyaudio":
+            microphone_stream = aai.extras.MicrophoneStream(sample_rate=STT_MODEL_SAMPLE_RATE)
+        else:
+            raise (f"STT: Microphone backend should set to be either `pyaudio` or `sounddevice`, but given {STT_MICROPHONE_BACKEND}")
         self.transcriber.stream(microphone_stream)
      
     def interact(self, assistant_action: Callable) -> bool:
         self.assistant_action = assistant_action
-        self.start_listening()
+        if AUTO_LISTEN_WITHOUT_CLOSE:
+            self.start_buffer_listening()
+        self.start_transcriber()
         return True
         
 
@@ -532,7 +599,7 @@ class WakeWordDetector:
         if self.i>3:
             self.i=1
         self.i+=1
-        audio_data = sd.rec(int(wait_time * RATE), samplerate=RATE, channels=CHANNELS)
+        audio_data = sd.rec(int(wait_time * WAKE_SAMPLE_RATE), samplerate=WAKE_SAMPLE_RATE, channels=CHANNELS)
         sd.wait()
         
         audio_data = audio_data.flatten()
@@ -540,7 +607,7 @@ class WakeWordDetector:
         if audio_data.max() > 1.0:
             audio_data = audio_data / 32768.0
         
-        input_features = self.processor(audio_data, sampling_rate=RATE, return_tensors="pt").input_features
+        input_features = self.processor(audio_data, sampling_rate=WAKE_SAMPLE_RATE, return_tensors="pt").input_features
         predicted_ids = self.model.generate(input_features)
         transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 

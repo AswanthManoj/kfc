@@ -9,10 +9,13 @@ if not os.path.exists("downloads"):
 #################
 # MODELS PARAMS #
 #################
-STT_MODEL = "nova-2"            # Optional if stt backend is of deepgram
-LLM_MODEL = "gpt-4o"            # "gemma2-9b-it"# "llama3-8b-8192"
-TTS_MODEL = "aura-asteria-en"
+STT_MODEL = "nova-2"                       # Optional if stt backend is of deepgram
+LLM_MODEL = "gpt-4o"                       # "gemma2-9b-it"# "llama3-8b-8192"
 ROTATE_LLM_API_KEYS = True
+TTS_MODEL = "aura-asteria-en"
+STT_MODEL_SAMPLE_RATE = 44000
+STT_END_OF_UTTERANCE_THRESHOLD = 1000
+STT_MICROPHONE_BACKEND = "sounddevice"     # Set to `pyaudio` or `sounddevice` 
 
 
 #############################
@@ -26,9 +29,9 @@ INTERMEDIATE_RESPONSE = "responses/intermediate_responses"
 ####################
 # WAKE WORD PARAMS #
 ####################
-RATE = 16000
 CHANNELS = 1
 WAKE_WAIT_DELAY = 1.2
+WAKE_SAMPLE_RATE = 16000
 WAKE_WORD_MODEL = "openai/whisper-tiny.en"
 WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there", "Hello K F C", "hi k f c"]]
 
@@ -42,6 +45,15 @@ ENABLE_STT_VERBOSITY = False
 ENABLE_TTS_VERBOSITY = False
 ENABLE_TOOL_VERBOSITY = False
 ENABLE_WEBVIEW_VERBOSITY = False
+
+
+
+################
+# EXPERIMENTAL #
+################
+AUTO_LISTEN_WITHOUT_CLOSE = False
+CONVERSATION_FILE_NAME = "chats.json"
+
 
 
 #############################
@@ -71,46 +83,6 @@ Menu:
 ---
 
 Use this information to assist customers with their orders and provide accurate item details.
+
+**Note:** Always review the cart using `get_cart_contents()` before finalizing confirmation with `confirm_order()`  
 """
-
-
-
-
-'''
-SYSTEM_PROMPT2 = """You are 'Crunchy', a friendly KFC drive-thru assistant. Your goal is to help customers to order food efficiently and accurately from KFC.
-
-You are capable to do the following:
-- Display menu items for customers. (only show it as needed not required always).
-- Manage the customer's cart (add, remove, modify items, review order) as per user requests.
-- Finalize by reviewing th order and asking for confirmation from the user.
-- Confirm the order and gracefully end the conversation
-
-The following menu contains information about available items for ordering:
-
-Menu:
-{menu}
-
-Guidelines:
-1. Greet the customer and ask for their order.
-2. When showing menu options, say "You can check out the screen for [category]" and briefly mention 2-3 popular items.
-3. Confirm item quantity if not specified by the user, then add it to the cart by calling `add_item_to_cart` with respective parameters, the item name should be same as in the given menu.
-4. Suggest complementary items from the available menu based on orders.
-5. Review the order by using `get_cart_contents` before finalizing, and ask for user confirmation.
-6. If user confirms then call `confirm_order` method to confirm the order and gracefully end the conversation.
-7. Keep responses clear and brief and politely deny any off-topic questions from the user.
-
-Interaction Flow:
-1. Greet and ask for order
-2. Display menu if needed, then follow up
-3. Build order, add, remove and modify cart one item at a time as user specifies it.
-4. Suggesting additional items
-5. Review order by calling `get_cart_contents` method
-5. Confirm and finalize order by `confirm_order`
-
-Remember:
-- Handle one item at a time while managing cart items.
-- Only accept orders for items in the provided menu.
-- For unavailable items, suggest alternatives.
-- Deny any questions which are off-topic to current interaction of food ordering from KFC.
-"""
-'''

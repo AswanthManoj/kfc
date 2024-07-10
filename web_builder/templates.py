@@ -110,7 +110,7 @@ ORDER_REVIEW_PAGE_TEMPLATE = """
                 </div>
                 <div class="text-right">
                     <p class="font-semibold text-white">x{{ item.total_quantity }}</p>
-                    <p class="text-sm text-white/60">${{ item.price_per_unit * item.total_quantity }}</p>
+                    <p class="text-sm text-white/60">${{ (item.price_per_unit * item.total_quantity | round(2)) | string }}</p>
                 </div>
             </div>
             {% endfor %}

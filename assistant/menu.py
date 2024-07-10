@@ -85,7 +85,6 @@ class KFCMenu:
         for category in [self.main_dishes, self.side_dishes, self.beverages]:
             for item in category:
                 if name == item.name:
-                    print("get item by name: ", item)
                     return item
         return None
     
@@ -105,7 +104,6 @@ class OrderCart(KFCMenu):
         for i, order in enumerate(self.orders):
             if order.name == item_name:
                 self.orders[i].total_quantity += quantity
-                # self.orders[i].image_url_path = item.image_url_path
                 result['total_quantity'] = self.orders[i].total_quantity
                 result['price_per_unit'] = f"${order.price_per_unit}"
                 is_new = False

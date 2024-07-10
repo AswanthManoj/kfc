@@ -18,19 +18,18 @@ conversation_manager = get_conversation_manager()
 
 def assistant_action(transcript: str) -> bool:
     order_cart.add_messages_to_state(Message(role="user", content=transcript))
-    stream_data = order_cart.get_view_data()
-    display(stream_data)
+    display(order_cart.get_view_data())
     
     response, order_confirmed = kfc_agent.invoke(transcript)
     audio_manager.speak(response)
     audio_manager.wait_until_done()
         
     order_cart.add_messages_to_state(Message(role="assistant", content=response))
-    stream_data = order_cart.get_view_data()
-    display(stream_data)
+    display(order_cart.get_view_data())
     
     if order_confirmed:
         order_cart.reset_cart()
+        kfc_agent.save_interaction()
 
     return order_confirmed
 
@@ -42,8 +41,7 @@ if __name__ == '__main__':
             print("Wake word detected...")
             response = audio_manager.play_initial_response()
             order_cart.add_messages_to_state(Message(role="assistant", content=response), is_started=True)
-            stream_data = order_cart.get_view_data()
-            display(stream_data)
+            display(order_cart.get_view_data())
             audio_manager.wait_until_done()
             
             # 1. Inside this first the it starts listening

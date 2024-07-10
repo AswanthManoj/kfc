@@ -152,8 +152,8 @@ def display_dishes(data: StreamData) -> str:
         "show_gif": show_gif,
         "cart_items": cart_items,
         "category": category_title,
-        "total_price": data.total_price,
         "menu_items": current_menu_items,
+        "total_price": round(data.total_price, 2),
         "logo_image": get_base64_image(LOGO_IMAGE_PATH),
     })
     if ENABLE_WEBVIEW_VERBOSITY:
@@ -181,7 +181,7 @@ def display_order_review(data: StreamData) -> str:
     rendered_html = html_template.render({
         "css": rendered_css,
         "cart_items": cart_items,
-        "total_price": data.total_price,
+        "total_price": round(data.total_price, 2),
         "logo_image": get_base64_image(LOGO_IMAGE_PATH),
         "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
     })
