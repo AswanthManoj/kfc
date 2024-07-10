@@ -14,30 +14,31 @@ MENU_PAGE_TEMPLATE = """
 <style>
     {{ css }}
 </style>
-<div class="bg-gray-20 grid min-h-screen grid-cols-4 bg-gradient-to-br from-red-700 to-red-700">
-    <div class="container col-span-3 mx-auto">
+<div class="bg-gray-20 grid min-h-screen grid-cols-4">
+    <div class="bg-kfc"></div>
+    <div class="container max-w-5xl col-span-3 mx-auto">
         <!-- Banner ad -->
         <!-- img class="w-full object-cover object-top" src="https://static-prod.adweek.com/wp-content/uploads/2024/06/kfcooh1-1024x538.png" alt="" /-->
         <!-- Banner ad end -->
-        <h2 class="px-3 pt-4 text-2xl font-bold text-white">{{ category }}</h2>
+        <h2 class="px-3 pt-4 text-3xl mb-3 font-bold text-white">{{ category }}</h2>
         <div class="grid grid-cols-1 gap-2 p-2 md:grid-cols-2 lg:grid-cols-3">
             <!-- A menu item -->
             {% for item in menu_items %}
-            <div class="rounded-md border bg-white p-0.5 shadow-md">
+            <div class="rounded-md border border-white/10 backdrop-blur-lg p-0.5 shadow-md">
                 <img class="h-[200px] w-full rounded-sm object-cover" src="{{ item.image_url_path }}" alt="{{ item.name }}"/>
                 <div class="px-2 py-2">
-                    <h2 class="text-lg font-semibold">{{ item.name }}</h2>
-                    <h2 class="text-lg text-gray-600">${{ item.price_per_unit }}</h2>
+                    <h2 class="text-xl text-white font-semibold">{{ item.name }}</h2>
+                    <p class="text-xl text-white font-semibold">${{ item.price_per_unit }}</h2>
                 </div>
             </div>
             {% endfor %}
             <!-- Menu item end -->
         </div>
     </div>
-    <div class="sticky top-0 col-span-1 flex h-screen flex-col justify-between bg-gradient-to-t from-zinc-950 to-zinc-950/70 px-3 py-4">
+    <div class="sticky top-0 col-span-1 flex h-screen flex-col justify-between bg-gradient-to-t from-black via-black to-red-900/80 backdrop-blur-md px-3 py-4">
         <div>
             <p class="text-2xl text-white">Your cart</p>
-            <p class="mt-1 text-xl text-white/60">Total price ${{ total_price }}</p>
+            <p class="mt-1 text-xl text-white">Total price ${{ total_price }}</p>
         <div class="cart-items mt-3 grid grid-cols-1 gap-2">
         <!-- A cart item -->
         {% for order in cart_items %}
@@ -55,7 +56,10 @@ MENU_PAGE_TEMPLATE = """
     
     <!-- Bottom section of Cart panel showing gif and transcript -->
     <div>
-        <img class="mix-blend-lighten" src="https://cdn.dribbble.com/users/651656/screenshots/5297182/untitled-4.gif" alt="" />
+        {% if show_gif %}
+            <p class="mt-1 text-sm text-white/60">Listening...</p>
+            <img class="mix-blend-lighten" src="https://cdn.dribbble.com/users/651656/screenshots/5297182/untitled-4.gif" alt="" />
+        {% endif %}
         <div class="p-2">
             <!-- Transcript start -->
             <div class="flex flex-col gap-2">
@@ -75,82 +79,62 @@ MENU_PAGE_TEMPLATE = """
 """
 
 ORDER_REVIEW_PAGE_TEMPLATE = """
-    <style>
-        {{ css }}
-    </style>
-    <div class="background"></div>
-    <div class="menu">
-        <img src="{{ logo_image }}" alt="KFC Logo" class="logo">
-        <div class="category">Your Cart</div>
-        <div class="menu-grid">
+<style>
+    {{ css }}
+    body {
+        background-image: url('{{ background_image }}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+    }
+    .backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        min-height: 100vh;
+    }
+</style>
+<div class="flex min-h-screen items-center justify-center bg-black/50 backdrop-blur-md">
+    <div class="m-4 max-w-md rounded-xl bg-white/10 p-8 shadow-lg backdrop-blur-lg">
+        <h2 class="mb-6 text-3xl font-bold text-white">Let's review your order</h2>
+        <div class="space-y-4">
+            <!-- A cart item -->
             {% for item in cart_items %}
-            <div class="item">
-                <img src="{{ item.image_url_path }}" alt="{{ item.name }}">
-                <div class="item-name">{{ item.name }}</div>
-                <div class="item-price">Quantity: {{ item.total_quantity }} | Total price of Item {{ item.price_per_unit * item.total_quantity }}</div>
+            <div class="flex items-center justify-between rounded-lg bg-white/20 p-4">
+                <div class="flex items-center space-x-4">
+                    <img src="{{ item.image_url_path }}" alt="{{ item.name }}" class="h-16 w-16 rounded-md object-cover">
+                    <div>
+                        <p class="font-semibold text-white">{{ item.name }}</p>
+                        <p class="text-sm text-white/60">${{ item.price_per_unit }} each</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-semibold text-white">x{{ item.total_quantity }}</p>
+                    <p class="text-sm text-white/60">${{ item.price_per_unit * item.total_quantity }}</p>
+                </div>
             </div>
             {% endfor %}
+            <!-- Cart item end -->
         </div>
-        <h1>Total Price: ${{ total_price }}</h1>
+        <div class="mt-6 rounded-lg bg-red-600 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-lg font-semibold text-white">Total price</p>
+                <p class="text-2xl font-bold text-white">${{ total_price }}</p>
+            </div>
+        </div>
     </div>
+</div>
 """
 
 CONFIRMATION_PAGE_TEMPLATE = """
+<style>
+    {{ css }}
+</style>
+<div class="h-screen bg-[#289b51] items-center flex flex-col justify-center">
+  <img class="object-cover max-h-56" src="https://cdn.dribbble.com/users/208474/screenshots/4356546/save_800x600.gif">
+  <h2 class="text-center text-white text-3xl font-bold">Thank you for your order!</h2>
+  <p class="text-white/70 text-center max-w-md mx-auto mt-3">Your order is under processing Lorem ipsum dolor sit amet consectetur adipisicing elit. Laborum, in.</p>
+</div>
 """
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#################################
-# DEPRECATED MENU PAGE TEMPLATE #
-#################################
-'''
-MENU_PAGE_TEMPLATE = """
-    <style>
-        {{ css }}
-    </style>
-    <div class="background"></div>
-    <div class="container">
-        <div class="menu">
-            <img src="{{ logo_image }}" alt="KFC Logo" class="logo">
-            <div class="category">{{ category }}</div>
-            <div class="menu-grid">
-                {% for item in menu_items %}
-                <div class="item">
-                    <img src="{{ item.image_url_path }}" alt="{{ item.name }}">
-                    <div class="item-name">{{ item.name }}</div>
-                    <div class="item-price">${{ item.price_per_unit }}</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        <div class="cart">
-            <h2>Your Order</h2>
-            {% for order in cart_items %}
-            <div class="cart-item">
-                <img src="{{ order.image_url_path }}" alt="{{ order.name }}">
-                <div class="cart-item-details">
-                    <div class="cart-item-name">{{ order.name }}</div>
-                    <div class="cart-item-quantity">Quantity: {{ order.total_quantity }}</div>
-                    <div class="cart-item-price">Price: ${{ order.price_per_unit * order.total_quantity }}</div>
-                </div>
-            </div>
-            {% endfor %}
-            <div class="total">Total: ${{ total_price }}</div>
-        </div>
-    </div>
-"""
-'''

@@ -7,7 +7,9 @@ from .styles import HOME_PAGE_STYLE
 from config import ENABLE_WEBVIEW_VERBOSITY
 from assistant.utils import StreamData, Item, Order
 from .tailwind_menu_page_style import MENU_PAGE_STYLE
-from .templates import HOME_PAGE_TEMPLATE, MENU_PAGE_TEMPLATE, ORDER_REVIEW_PAGE_TEMPLATE
+from .tailwind_review_page_style import ORDER_REVIEW_PAGE_STYLE
+from .tailwind_confirmation_page_style import CONFIRMATION_PAGE_STYLE
+from .templates import HOME_PAGE_TEMPLATE, MENU_PAGE_TEMPLATE, ORDER_REVIEW_PAGE_TEMPLATE, CONFIRMATION_PAGE_TEMPLATE
 
 
 MENU_ITEM_HEIGHT = 300
@@ -55,11 +57,14 @@ def display(data: StreamData):
     elif data.action == "get_cart_contents":
         rendered_html = display_order_review(data)
     elif data.action == "confirm_order":
-        rendered_html = display_confirmation(data)
+        rendered_html = display_confirmation()
     else:
         rendered_html = display_data_dump(data)
-        
-    Webview.update_view(rendered_html)
+    try:    
+        Webview.update_view(rendered_html)
+    except Exception as e:
+        print("Unable to update the webview, likely due to disconnection of the client browser", str(e))
+        return False
     return True
 
 def display_home_page() -> str:
@@ -77,6 +82,8 @@ def display_home_page() -> str:
             "Speak up for finger-lickin' good!",
         ])
     })
+    if ENABLE_WEBVIEW_VERBOSITY:
+        print(f"WEBVIEW: `display_home_page` rendered successfully.")
     return rendered_html
 
 def display_dishes(data: StreamData) -> str:
@@ -129,8 +136,12 @@ def display_dishes(data: StreamData) -> str:
         role1 = data.stream_messages[-1].role
         turn1 = data.stream_messages[-1].content
         role1 = "AI:" if role1=='assistant' else "You:"
+    
+    show_gif = True if role2=="AI:" else False
         
-    rendered_css = css_template.render({})
+    rendered_css = css_template.render({
+        "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
+    })
 
     rendered_html = html_template.render({
         "role1": role1,
@@ -138,20 +149,19 @@ def display_dishes(data: StreamData) -> str:
         "turn1": turn1,
         "turn2": turn2,
         "css": rendered_css,
+        "show_gif": show_gif,
         "cart_items": cart_items,
         "category": category_title,
         "total_price": data.total_price,
         "menu_items": current_menu_items,
         "logo_image": get_base64_image(LOGO_IMAGE_PATH),
-        "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
     })
     if ENABLE_WEBVIEW_VERBOSITY:
-        print(f"WEBVIEW: `generate_show_menu` rendered successfully.")
-    Webview.update_view(rendered_html)
+        print(f"WEBVIEW: `display_dishes` rendered successfully.")
     return rendered_html
 
 def display_order_review(data: StreamData) -> str:
-    css_template = Template(MENU_PAGE_STYLE)
+    css_template = Template(ORDER_REVIEW_PAGE_STYLE)
     html_template = Template(ORDER_REVIEW_PAGE_TEMPLATE)
 
     # Generate cart items HTML
@@ -165,8 +175,6 @@ def display_order_review(data: StreamData) -> str:
     ]
         
     rendered_css = css_template.render({
-        "menu_item_height": MENU_ITEM_HEIGHT,
-        "cart_item_height": CART_ITEM_HEIGHT,
         "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
     })
 
@@ -174,17 +182,21 @@ def display_order_review(data: StreamData) -> str:
         "css": rendered_css,
         "cart_items": cart_items,
         "total_price": data.total_price,
-        "logo_image": get_base64_image(LOGO_IMAGE_PATH)
+        "logo_image": get_base64_image(LOGO_IMAGE_PATH),
+        "background_image": get_base64_image(MENU_BACKGROUND_IMAGE)
     })
     if ENABLE_WEBVIEW_VERBOSITY:
-        print(f"WEBVIEW: `generate_show_menu` rendered successfully.")
-    Webview.update_view(rendered_html)
+        print(f"WEBVIEW: `display_order_review` rendered successfully.")
     return rendered_html
 
-def display_confirmation(data: StreamData) -> str:
-    rendered_html = "<h1>Thank you for confirming the order...</h1>"
-    Webview.update_view(rendered_html)
+def display_confirmation() -> str:
+    css_template = Template(CONFIRMATION_PAGE_STYLE)
+    html_template = Template(CONFIRMATION_PAGE_TEMPLATE)
+    rendered_css = css_template.render({})
+    rendered_html = html_template.render({"css": rendered_css})
+    if ENABLE_WEBVIEW_VERBOSITY:
+        print(f"WEBVIEW: `display_confirmation` rendered successfully.")
     return rendered_html
    
-def display_data_dump(data: StreamData):
-    Webview.update_view(data.model_dump_json()) 
+def display_data_dump(data: StreamData) -> str:
+    return data.model_dump_json()

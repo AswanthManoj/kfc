@@ -1,11 +1,11 @@
 import asyncio, os
-from config import STT_MODEL
 from dotenv import load_dotenv
 from typing import Callable, Optional
 from deepgram import ( 
     DeepgramClient, DeepgramClientOptions, 
     LiveTranscriptionEvents, LiveOptions, Microphone 
 )
+from config import STT_MODEL, ENABLE_STT_VERBOSITY
 
 
 load_dotenv()
@@ -13,10 +13,12 @@ load_dotenv()
     
 class ConversationManager:
     def __init__(self, model_name: str=None):
-        self.model_name = model_name or STT_MODEL
-        self.transcription_response = ""
-        self.api_key = os.getenv("DEEPGRAM_API_KEY")
         self.reset_part()
+        self.transcription_response = ""
+        self.run_callback_in_thread =False
+        self.model_name = model_name or STT_MODEL
+        self.end_utterance_silence_threshold = 300
+        self.api_key = os.getenv("DEEPGRAM_API_KEY")
         
     def handle_full_sentence(self, full_sentence):
         self.transcription_response = full_sentence
@@ -49,18 +51,34 @@ class ConversationManager:
                 self.stream_callback(text)
         else:
             self.add_part(sentence)
+            # Get full transcript
             full_sentence = self.get_full_transcript()
             if len(full_sentence.strip()) > 0:
                 full_sentence = full_sentence.strip()
-                # Get full transcript
                 if self.data_callback:
-                    close = self.data_callback(full_sentence)
+                    try:
+                        if self.run_callback_in_thread:
+                            asyncio.create_task(self.run_data_callback(full_sentence))
+                        else:
+                            close = self.data_callback(full_sentence)   
+                            if close:
+                                self.microphone.finish()
+                                await self.dg_connection.finish()
+                                print("STT: Closed connection for listening.")
+                    except Exception as e:
+                        print(f"Error executing callback: {e}")
                 self.reset_part()
-                if close:
-                    self.microphone.finish()
-                    await self.dg_connection.finish()
-                    print("STT: Closed connection for listening.")
                 self.transcription_event.set()
+    
+    async def run_data_callback(self, transcript: str):
+        try:
+            close = self.data_callback(transcript)   
+            if close:
+                self.microphone.finish()
+                await self.dg_connection.finish()
+                print("STT: Closed connection for listening.")
+        except Exception as e:
+            print(f"Error in run_data_callback: {e}")
                 
     async def on_error(self, cls, error):
         print("STT: An error occurred:", error)
@@ -72,7 +90,7 @@ class ConversationManager:
         self.open_callback=on_open
         self.data_callback=on_data
         self.stream_callback = on_stream
-        
+        self.end_utterance_silence_threshold = end_utterance_threshold or self.end_utterance_silence_threshold
         self.transcription_event = asyncio.Event()
         
         try:
@@ -91,12 +109,12 @@ class ConversationManager:
             await self.dg_connection.start(LiveOptions(
                 channels=1,
                 punctuate=True,
-                endpointing=300,
                 language="en-US",
                 sample_rate=16000,
                 smart_format=False,
                 encoding="linear16",
                 model=self.model_name,
+                endpointing=self.end_utterance_silence_threshold,
             ))
             self.microphone = Microphone(self.dg_connection.send)         # Open a microphone stream on the default input device
             self.microphone.start()
@@ -108,7 +126,8 @@ class ConversationManager:
             print(f"Could not open socket: {e}")
             return
     
-    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None, on_stream: Optional[Callable]=None, end_utterance_threshold: Optional[int]=None):
+    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None, on_stream: Optional[Callable]=None, end_utterance_threshold: Optional[int]=None, run_callback_in_thread: bool=False):
+        self.run_callback_in_thread = run_callback_in_thread
         asyncio.run(self.__run__(
             on_open=on_open,
             on_data=on_data,

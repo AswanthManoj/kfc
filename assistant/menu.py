@@ -194,7 +194,7 @@ class OrderCart(KFCMenu):
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(confirmation)}")
         
-        self.reset_cart()
+        # self.reset_cart()
         return yaml.dump(confirmation)
 
     def get_cart_contents(self) -> str:

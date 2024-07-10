@@ -1,4 +1,5 @@
 import wave
+import threading
 import ast, queue
 import numpy as np
 from io import BytesIO
@@ -551,7 +552,8 @@ class ConversationManager:
         """
         self.transcriber = None
         self.is_speaking = False
-        self.microphone_stream = None
+        self.run_callback_in_thread =False
+        self.microphone_stream: MicrophoneStream = None
         aai.settings.api_key = os.getenv("ASSEMBLY_API_KEY")
         self.end_utterance_silence_threshold = end_utterance_silence_threshold
 
@@ -580,24 +582,33 @@ class ConversationManager:
         if not transcript.text:
             return
         if isinstance(transcript, aai.RealtimeFinalTranscript):
-            close = False
             if ENABLE_STT_VERBOSITY:
                 print(f"STT: {transcript.text}")
             
-            self.microphone_stream.pause()
-            
             if self.data_callback:
-                close = self.data_callback(transcript.text)   
-            if close:
-                self.microphone_stream.close()
-                self.transcriber.close()
-                if ENABLE_STT_VERBOSITY:
-                    print("STT: Closed connection for listening.")
-        
-            self.microphone_stream.resume()
+                self.microphone_stream.pause()
+                if self.run_callback_in_thread:
+                    threading.Thread(target=self.run_data_callback, args=(transcript.text,)).start()
+                else:
+                    close = self.data_callback(transcript.text)   
+                    if close:
+                        self.microphone_stream.close()
+                        self.transcriber.close()
+                        if ENABLE_STT_VERBOSITY:
+                            print("STT: Closed connection for listening.")
+                    self.microphone_stream.resume()
+                
         else:
             self.stream_callback(transcript.text)
 
+    def run_data_callback(self, transcript: str):
+        close = self.data_callback(transcript.text)   
+        if close:
+            self.microphone_stream.close()
+            self.transcriber.close()
+            if ENABLE_STT_VERBOSITY:
+                print("STT: Closed connection for listening.")
+            
     def on_error(self, error: aai.RealtimeError):
         """
         Callback method triggered when an error occurs during transcription.
@@ -615,21 +626,11 @@ class ConversationManager:
         if ENABLE_STT_VERBOSITY:
             print("STT: Closed connection for listening")
             
-    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None, on_stream: Optional[Callable]=None, end_utterance_threshold: Optional[int]=None):
-        """
-        Start the conversation management process.
-
-        This method initializes the transcriber, connects to the AssemblyAI API,
-        and starts streaming audio from the microphone for transcription.
-
-        Args:
-            on_stream (Optional[Callable]): Callback function to call when transcript streams.
-            on_open (Optional[Callable]): Callback function when the connection is opened.
-            on_data (Optional[Callable]): Callback function when new transcription data is received.
-        """
+    def run(self, on_open: Optional[Callable]=None, on_data: Optional[Callable]=None, on_stream: Optional[Callable]=None, end_utterance_threshold: Optional[int]=None, run_callback_in_thread: Optional[bool]=False):
         self.open_callback=on_open
         self.data_callback=on_data
         self.stream_callback = on_stream
+        self.run_callback_in_thread = run_callback_in_thread
         
         self.transcriber = aai.RealtimeTranscriber(
             sample_rate=44_100,

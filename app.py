@@ -30,7 +30,6 @@ def main1():
         stream_data = order_cart.get_view_data()
         display(stream_data)
         
-        
     def data_callback(text: str) -> bool:
         """Function called when transcript is complete is order confirmed then return True to close the connection"""
         order_cart.add_messages_to_state(Message(role="user", content=text))
@@ -47,6 +46,7 @@ def main1():
         
         if order_confirmed:
             order_cart.reset_cart()
+        
         return order_confirmed
     
     # Experimental Callback to stream live transcript
@@ -59,10 +59,11 @@ def main1():
     while True:
         if wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
             conversation_manager.run(
-                on_stream=None,              # stream_callback,
+                on_stream=None,               # stream_callback,
                 on_open=open_callback, 
                 on_data=data_callback,
-                end_utterance_threshold=None # is not currently set.
+                end_utterance_threshold=None, # is not currently set.
+                run_callback_in_thread=True   # Set this to true to run the assistant interaction in thread to prevent transcript socket data stream blocking
             )
             
  
@@ -105,6 +106,8 @@ def main2():
         
         if order_confirmed:
             order_cart.reset_cart()
+        
+        # audio_manager.microphone_stream.resume()
         return order_confirmed
     
     # Experimental Callback to stream live transcript
@@ -117,10 +120,11 @@ def main2():
     while True:
         if wake_detector.detect(WAKE_WORDS, WAKE_WAIT_DELAY):
             conversation_manager.run(
-                on_stream=None,             # stream_callback,
+                on_stream=None,               # stream_callback,
                 on_open=open_callback, 
                 on_data=data_callback,
-                end_utterance_threshold=None
+                end_utterance_threshold=None,
+                run_callback_in_thread=True   # Set this to true to run the assistant interaction in thread to prevent transcript socket data stream blocking
             )
             
 
