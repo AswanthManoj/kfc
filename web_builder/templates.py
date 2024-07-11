@@ -105,7 +105,7 @@ ORDER_REVIEW_PAGE_TEMPLATE = """
                     <img src="{{ item.image_url_path }}" alt="{{ item.name }}" class="h-16 w-16 rounded-md object-cover">
                     <div>
                         <p class="font-semibold text-white">{{ item.name }}</p>
-                        <p class="text-sm text-white/60">${{ item.price_per_unit }} each</p>
+                        <p class="text-sm text-white/60">${{ item.price_per_unit | round(2) }} each</p>
                     </div>
                 </div>
                 <div class="text-right">

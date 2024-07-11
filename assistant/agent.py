@@ -1,4 +1,5 @@
 
+from datetime import datetime
 import json
 import wave, os
 import threading
@@ -23,7 +24,7 @@ from typing import List, Dict, Optional, Tuple, Callable
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
 from config import ( CHANNELS, ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, STT_MICROPHONE_BACKEND, 
-    CONVERSATION_FILE_NAME, ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, 
+    CONVERSATION_FOLDER, ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, 
     STT_MODEL_SAMPLE_RATE, WAKE_SAMPLE_RATE, AUTO_LISTEN_WITHOUT_CLOSE, STT_WORD_PROB_BOOSTS
 )
 
@@ -227,23 +228,81 @@ class Agent:
     def update_audio_manager(self, audio_manager: AudioManager):
         self.audio_manager = audio_manager
         
+    # def save_interaction(self):
+    #     if not CONVERSATION_FILE_NAME:
+    #         print("No file name specified for saving the conversation.")
+    #         return
+
+    #     try:
+    #         messages = [{"role": msg.type, "content": msg.content} for msg in self.messages] if hasattr(self, 'messages') else []
+            
+    #         existing_data = []
+    #         if os.path.exists(CONVERSATION_FILE_NAME):
+    #             with open(CONVERSATION_FILE_NAME, 'r') as f:
+    #                 existing_data = json.load(f)
+    #             if not isinstance(existing_data, list):
+    #                 existing_data = []
+            
+    #         if messages:
+    #             existing_data.append(messages)
+            
+    #         with open(CONVERSATION_FILE_NAME, 'w') as f:
+    #             json.dump(existing_data, f, indent=4)
+    #         print(f"Successfully saved interaction to {CONVERSATION_FILE_NAME}")
+        
+    #     except json.JSONDecodeError:
+    #         print(f"Error decoding existing JSON in {CONVERSATION_FILE_NAME}")
+    #     except IOError as e:
+    #         print(f"IOError when saving to {CONVERSATION_FILE_NAME}: {str(e)}")
+    #     except Exception as e:
+    #         print(f"Unexpected error when saving interaction: {str(e)}")
+    
     def save_interaction(self):
-        if CONVERSATION_FILE_NAME:
-            messages = [dict(role=msg.type, content=msg.content) for msg in self.messages] if self.messages else []
-            existing_data = []
-            if os.path.exists(CONVERSATION_FILE_NAME):
-                with open(CONVERSATION_FILE_NAME, 'r') as f:
-                    existing_data = json.load(f)
-                if not isinstance(existing_data, list):
-                    existing_data = []
-            if messages:
-                existing_data.append(messages)
-            try:
-                with open(CONVERSATION_FILE_NAME, 'w') as f:
-                    json.dump(existing_data, f, indent=4)
-                print(f"Successfully saved interaction to {CONVERSATION_FILE_NAME}")
-            except IOError:
-                print(f"Error saving to {CONVERSATION_FILE_NAME}")
+        # Create the directory if it doesn't exist
+        save_dir = CONVERSATION_FOLDER
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+        except OSError as e:
+            print(f"Error creating directory {save_dir}: {str(e)}")
+            return
+
+        # Generate filename with current datetime
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"chat-{current_time}.json"
+        full_path = os.path.join(save_dir, filename)
+
+        try:
+            # Check if self.messages exists and is iterable
+            if not hasattr(self, 'messages'):
+                print("Error: self.messages not found")
+                return
+            if not hasattr(self.messages, '__iter__'):
+                print("Error: self.messages is not iterable")
+                return
+
+            # Prepare messages
+            messages = [{"role": msg.type, "content": msg.content} for msg in self.messages]
+            
+            # Check if messages list is empty
+            if not messages:
+                print("No messages to save.")
+                return
+
+            # Save messages to file
+            with open(full_path, 'w') as f:
+                json.dump(messages, f, indent=4)
+            print(f"Successfully saved interaction to {full_path}")
+
+        except AttributeError as e:
+            print(f"AttributeError: {str(e)}")
+        except TypeError as e:
+            print(f"TypeError when processing messages: {str(e)}")
+        except json.JSONEncodeError as e:
+            print(f"Error encoding messages to JSON: {str(e)}")
+        except IOError as e:
+            print(f"IOError when saving to {full_path}: {str(e)}")
+        except Exception as e:
+            print(f"Unexpected error when saving interaction: {str(e)}")
         
     def set_llm_engine(self, model_name: str):
         self.backend = "oai"
