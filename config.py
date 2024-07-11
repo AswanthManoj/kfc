@@ -2,25 +2,17 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-if not os.path.exists("downloads"):
-    os.makedirs("downloads")
 
 
 #################
 # MODELS PARAMS #
 #################
-STT_MODEL = "nova-2"                       # Optional if stt backend is of deepgram
 LLM_MODEL = "gpt-4o"                       # "gemma2-9b-it"# "llama3-8b-8192"
 ROTATE_LLM_API_KEYS = True
 TTS_MODEL = "aura-asteria-en"
 STT_MODEL_SAMPLE_RATE = 48000
-STT_END_OF_UTTERANCE_THRESHOLD = 1500
-STT_MICROPHONE_BACKEND = "pyaudio"     # Set to `pyaudio` or `sounddevice` 
-# STT_WORD_PROB_BOOSTS = [
-#     "side dishes", "main dishes", "cart", "pepsi", "iced tea", "order", "hot dog",
-#     "confirm", "mountain dew", "coleslaw", "french fries", "mac and cheese", "add", "remove",
-#     "cream cheese", "mashed potatoes", "chizza", "burger", "saucy chicken", "drumstick", "show"
-# ]
+STT_MICROPHONE_BACKEND = "pyaudio"         # Set to `pyaudio` or `sounddevice` 
+STT_END_OF_UTTERANCE_THRESHOLD = 1500      # Adjust this to detect end of speech (units in ms)   
 STT_WORD_PROB_BOOSTS = ["chizza", "coleslaw"]
 
 #############################
@@ -56,7 +48,7 @@ ENABLE_WEBVIEW_VERBOSITY = True
 ################
 # EXPERIMENTAL #
 ################
-AUTO_LISTEN_WITHOUT_CLOSE = False
+AUTO_LISTEN_WITHOUT_CLOSE = False          # Requires optimizing the added words to buffer
 CONVERSATION_FOLDER = "saved_chats"
 
 
@@ -91,3 +83,8 @@ Use this information to assist customers with their orders and provide accurate 
 
 **Note:** Always review the cart using `get_cart_contents()` before finalizing confirmation with `confirm_order()`  
 """
+
+if not os.path.exists("downloads"):
+    os.makedirs("downloads")
+if not os.path.exists(CONVERSATION_FOLDER):
+    os.makedirs(CONVERSATION_FOLDER)

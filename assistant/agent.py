@@ -1,5 +1,3 @@
-
-from datetime import datetime
 import json
 import wave, os
 import threading
@@ -8,6 +6,7 @@ import numpy as np
 from io import BytesIO
 import sounddevice as sd
 import assemblyai as aai
+from datetime import datetime
 from pydub import AudioSegment
 from pydub.playback import play
 from config import SYSTEM_PROMPT
@@ -23,9 +22,9 @@ from langchain_core.messages import (
 from typing import List, Dict, Optional, Tuple, Callable
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from sound_path import disfluencies_data, initial_responses_data, intermediate_responses_data
-from config import ( CHANNELS, ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, STT_MICROPHONE_BACKEND, 
-    CONVERSATION_FOLDER, ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, 
-    STT_MODEL_SAMPLE_RATE, WAKE_SAMPLE_RATE, AUTO_LISTEN_WITHOUT_CLOSE, STT_WORD_PROB_BOOSTS
+from config import ( ROTATE_LLM_API_KEYS, STT_END_OF_UTTERANCE_THRESHOLD, WAKE_SAMPLE_RATE, 
+    CONVERSATION_FOLDER, ENABLE_LLM_VERBOSITY, ENABLE_STT_VERBOSITY, ENABLE_TTS_VERBOSITY, CHANNELS,
+    STT_MODEL_SAMPLE_RATE,  AUTO_LISTEN_WITHOUT_CLOSE, STT_WORD_PROB_BOOSTS, STT_MICROPHONE_BACKEND,
 )
 
 
@@ -64,6 +63,7 @@ class AudioManager:
         self.headers = {"Content-Type": "application/json", "Authorization": f"Token {self.api_key}"}
 
         self.disfluence_index = 0
+        self.played_actions = set()
         self.disfluencies: Dict[str, AudioSegment] = {}
         self.initial_responses: Dict[str, AudioSegment] = {}
         self.intermediate_responses: Dict[str, Dict[str, AudioSegment]] = {}
@@ -140,26 +140,30 @@ class AudioManager:
         self.__add_to_queue__(self.initial_responses[choice])
         return choice
 
-    def play_intermediate_response(self, category: str) -> str:
+    def play_intermediate_response(self, action_category: str) -> str:
         """
         Play a random intermediate response audio from a specific category of tool invocation.
 
         Args:
-            category (str): The category of the intermediate response.
+            action_category (str): The category of the intermediate response.
 
         Returns:
             str: The text of the played response.
         """
-        if category in self.intermediate_responses:
-            choice = random.choice(list(self.intermediate_responses[category].keys()))
+        if (action_category in self.intermediate_responses) and (action_category not in self.played_actions):
+            choice = random.choice(list(self.intermediate_responses[action_category].keys()))
             if ENABLE_TTS_VERBOSITY:
                 print(f"TTS PRE-REC: {choice}")
-            self.__add_to_queue__(self.intermediate_responses[category][choice])
+            self.__add_to_queue__(self.intermediate_responses[action_category][choice])
+            self.played_actions.add(action_category)
             return choice
         else:
             if ENABLE_TTS_VERBOSITY:
-                print(f"TTS: Category {category} not found.")
+                print(f"TTS: Category {action_category} not found.")
             return ""
+        
+    def reset_intermediate_sound(self):
+        self.played_actions = set()    
         
     def speak(self, text: str) -> None:
         """
@@ -227,35 +231,6 @@ class Agent:
         
     def update_audio_manager(self, audio_manager: AudioManager):
         self.audio_manager = audio_manager
-        
-    # def save_interaction(self):
-    #     if not CONVERSATION_FILE_NAME:
-    #         print("No file name specified for saving the conversation.")
-    #         return
-
-    #     try:
-    #         messages = [{"role": msg.type, "content": msg.content} for msg in self.messages] if hasattr(self, 'messages') else []
-            
-    #         existing_data = []
-    #         if os.path.exists(CONVERSATION_FILE_NAME):
-    #             with open(CONVERSATION_FILE_NAME, 'r') as f:
-    #                 existing_data = json.load(f)
-    #             if not isinstance(existing_data, list):
-    #                 existing_data = []
-            
-    #         if messages:
-    #             existing_data.append(messages)
-            
-    #         with open(CONVERSATION_FILE_NAME, 'w') as f:
-    #             json.dump(existing_data, f, indent=4)
-    #         print(f"Successfully saved interaction to {CONVERSATION_FILE_NAME}")
-        
-    #     except json.JSONDecodeError:
-    #         print(f"Error decoding existing JSON in {CONVERSATION_FILE_NAME}")
-    #     except IOError as e:
-    #         print(f"IOError when saving to {CONVERSATION_FILE_NAME}: {str(e)}")
-    #     except Exception as e:
-    #         print(f"Unexpected error when saving interaction: {str(e)}")
     
     def save_interaction(self):
         # Create the directory if it doesn't exist
@@ -431,6 +406,8 @@ class Agent:
                 tool_call_identified = False
                 if ENABLE_LLM_VERBOSITY:
                     print(f"LLM RESPONSE: {response.content}")
+        if self.audio_manager:
+            self.audio_manager.reset_intermediate_sound()
         return response.content, is_order_confirmed
 
        
@@ -547,10 +524,11 @@ class ConversationManager:
                     print("STT: Started listening...")
     
     def get_from_buffer(self) -> str:
-        return "".join(self.buffer)
+        return " ".join(self.buffer)
     
     def add_to_buffer(self, words:List[RealtimeWord]):
-        self.buffer.append(words[-1].text)
+        if words[-1].text!=self.buffer[-1]:
+            self.buffer.append(words[-1].text)
     
     def clear_buffer(self):
         self.buffer = []

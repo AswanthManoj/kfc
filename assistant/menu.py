@@ -2,7 +2,7 @@ import yaml
 from typing import List, Optional
 from web_builder.builder import display
 from assistant.agent import AudioManager
-from config import ENABLE_TOOL_VERBOSITY, ENABLE_TTS_VERBOSITY
+from config import ENABLE_TOOL_VERBOSITY
 from assistant.utils import Item, Order, Menu, StreamData, Message
 
 
@@ -29,6 +29,10 @@ class KFCMenu:
     def update_audio_manager(self, audio_manager):
         self.audio_manager = audio_manager
         
+    def play_intermediate_sound(self, action:str):
+        if self.audio_manager:
+            self.audio_manager.play_intermediate_response(action)
+               
     def get_view_data(self) -> StreamData:
         view_data = StreamData(
             menu=self.menu,
@@ -48,8 +52,7 @@ class KFCMenu:
     def show_main_dishes(self) -> bool:
         self.action = "show_main_dishes"
         
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -60,8 +63,7 @@ class KFCMenu:
     def show_side_dishes(self) -> bool:
         self.action = "show_side_dishes"
         
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -72,8 +74,7 @@ class KFCMenu:
     def show_beverages(self) -> bool:
         self.action = "show_beverages"
         
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -118,8 +119,7 @@ class OrderCart(KFCMenu):
             ))
         
         self.action = "add_item_to_cart"
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -142,8 +142,7 @@ class OrderCart(KFCMenu):
                 break
             
         self.action = "remove_item_from_cart"
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -166,8 +165,7 @@ class OrderCart(KFCMenu):
                 break
             
         self.action = "modify_item_quantity_in_cart"
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         
@@ -184,15 +182,13 @@ class OrderCart(KFCMenu):
         }
         
         self.action = "confirm_order"
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
        
         if ENABLE_TOOL_VERBOSITY:
             print(f"TOOL '{self.action}': {yaml.dump(confirmation)}")
         
-        # self.reset_cart()
         return yaml.dump(confirmation)
 
     def get_cart_contents(self) -> str:
@@ -204,8 +200,7 @@ class OrderCart(KFCMenu):
             contents.append({"name": order.name, "quantity": order.total_quantity, "price": total})
             
         self.action = "get_cart_contents"
-        if self.audio_manager:
-            self.audio_manager.play_intermediate_response(self.action)
+        self.play_intermediate_sound(self.action)
         view_data = self.get_view_data()
         display(view_data)
         

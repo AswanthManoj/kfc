@@ -63,7 +63,7 @@ def display(data: StreamData):
     try:    
         Webview.update_view(rendered_html)
     except Exception as e:
-        print("Unable to update the webview, likely due to disconnection of the client browser", str(e))
+        print("Unable to update the webview, likely due to disconnection of the client browser or webview server is not started", str(e))
         return False
     return True
 
@@ -192,8 +192,17 @@ def display_order_review(data: StreamData) -> str:
 def display_confirmation() -> str:
     css_template = Template(CONFIRMATION_PAGE_STYLE)
     html_template = Template(CONFIRMATION_PAGE_TEMPLATE)
+    messages = [
+        """Your crispy craving is about to be satisfied! Our chefs are working faster than a chicken with its feathers on fire.""",
+        """Hold onto your drumsticks! Your order is sizzling its way to perfection quicker than you can say "Extra Crispy".""",
+        """Great choice, chicken champion! We're cooking up your meal with more enthusiasm than a rooster at sunrise.""",
+        """Your taste buds are in for a treat! We're preparing your order with the speed of a chicken crossing the road... to get to KFC.""",
+        """Clucking marvelous order! Our cooks are as excited as a hen finding a golden corn kernel to whip up your meal.""",
+        """Wings up! Your flavor-packed feast is being prepped faster than you can flap your arms and say "I'm a chicken!".""",
+        """Bawk bawk! (That's chicken for "Great choice!") Your order will be ready in no time, because our cooks are no spring chickens.""",
+    ]
     rendered_css = css_template.render({})
-    rendered_html = html_template.render({"css": rendered_css})
+    rendered_html = html_template.render({"css": rendered_css, "message": random.choice(messages)})
     if ENABLE_WEBVIEW_VERBOSITY:
         print(f"WEBVIEW: `display_confirmation` rendered successfully.")
     return rendered_html

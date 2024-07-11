@@ -28,7 +28,7 @@ MENU_PAGE_TEMPLATE = """
                 <img class="h-[200px] w-full rounded-sm object-cover" src="{{ item.image_url_path }}" alt="{{ item.name }}"/>
                 <div class="px-2 py-2">
                     <h2 class="text-xl text-white font-semibold">{{ item.name }}</h2>
-                    <p class="text-xl text-white font-semibold">${{ item.price_per_unit }}</h2>
+                    <p class="text-xl text-white font-semibold">${{ item.price_per_unit | round(2) }}</h2>
                 </div>
             </div>
             {% endfor %}
@@ -38,7 +38,7 @@ MENU_PAGE_TEMPLATE = """
     <div class="sticky top-0 col-span-1 flex h-screen flex-col justify-between bg-gradient-to-t from-black via-black to-red-900/80 backdrop-blur-md px-3 py-4">
         <div>
             <p class="text-2xl text-white">Your cart</p>
-            <p class="mt-1 text-xl text-white">Total price ${{ total_price }}</p>
+            <p class="mt-1 text-xl text-white">Total price ${{ total_price | round(2) }}</p>
         <div class="cart-items mt-3 grid grid-cols-1 gap-2">
         <!-- A cart item -->
         {% for order in cart_items %}
@@ -46,7 +46,7 @@ MENU_PAGE_TEMPLATE = """
             <img class="h-12 w-12 rounded-md object-cover" src="{{ order.image_url_path }}" alt="{{ order.name }}" />
             <div>
                 <p class="font-semibold text-white">{{ order.name }}</p>
-                <p class="text-xs text-white/40">x{{ order.total_quantity }} · ${{ order.price_per_unit}}</p>
+                <p class="text-xs text-white/40">x{{ order.total_quantity }} · ${{ order.price_per_unit | round(2) }}</p>
             </div>
         </div>
         {% endfor %}
@@ -133,7 +133,7 @@ CONFIRMATION_PAGE_TEMPLATE = """
 <div class="h-screen bg-[#289b51] items-center flex flex-col justify-center">
   <img class="object-cover max-h-56" src="https://cdn.dribbble.com/users/208474/screenshots/4356546/save_800x600.gif">
   <h2 class="text-center text-white text-3xl font-bold">Thank you for your order!</h2>
-  <p class="text-white/70 text-center max-w-md mx-auto mt-3">Your order is under processing Lorem ipsum dolor sit amet consectetur adipisicing elit. Laborum, in.</p>
+  <p class="text-white/70 text-center max-w-md mx-auto mt-3">{{ message }}</p>
 </div>
 """
 
