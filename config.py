@@ -13,14 +13,15 @@ STT_MODEL = "nova-2"                       # Optional if stt backend is of deepg
 LLM_MODEL = "gpt-4o"                       # "gemma2-9b-it"# "llama3-8b-8192"
 ROTATE_LLM_API_KEYS = True
 TTS_MODEL = "aura-asteria-en"
-STT_MODEL_SAMPLE_RATE = 44000
-STT_END_OF_UTTERANCE_THRESHOLD = 1000
-STT_MICROPHONE_BACKEND = "sounddevice"     # Set to `pyaudio` or `sounddevice` 
-STT_WORD_PROB_BOOSTS = [
-    "side dishes", "main dishes", "cart", "pepsi", "iced tea", "order", "hot dog",
-    "confirm", "mountain dew", "coleslaw", "french fries", "mac and cheese", "add", "remove",
-    "cream cheese", "mashed potatoes", "chizza", "burger", "saucy chicken", "drumstick", "show"
-]
+STT_MODEL_SAMPLE_RATE = 48000
+STT_END_OF_UTTERANCE_THRESHOLD = 1500
+STT_MICROPHONE_BACKEND = "pyaudio"     # Set to `pyaudio` or `sounddevice` 
+# STT_WORD_PROB_BOOSTS = [
+#     "side dishes", "main dishes", "cart", "pepsi", "iced tea", "order", "hot dog",
+#     "confirm", "mountain dew", "coleslaw", "french fries", "mac and cheese", "add", "remove",
+#     "cream cheese", "mashed potatoes", "chizza", "burger", "saucy chicken", "drumstick", "show"
+# ]
+STT_WORD_PROB_BOOSTS = ["chizza", "coleslaw"]
 
 #############################
 # PRE-RECORDED SOUNDS PATHS #
@@ -34,7 +35,7 @@ INTERMEDIATE_RESPONSE = "responses/intermediate_responses"
 # WAKE WORD PARAMS #
 ####################
 CHANNELS = 1
-WAKE_WAIT_DELAY = 1.2
+WAKE_WAIT_DELAY = 4
 WAKE_SAMPLE_RATE = 16000
 WAKE_WORD_MODEL = "openai/whisper-tiny.en"
 WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there", "Hello K F C", "hi k f c"]]
@@ -44,11 +45,11 @@ WAKE_WORDS = [word.lower() for word in ["hi", "Hello", "hey there", "Hello K F C
 #############
 # DEBUGGING #
 #############
-ENABLE_LLM_VERBOSITY = False
+ENABLE_LLM_VERBOSITY = True
 ENABLE_STT_VERBOSITY = False
 ENABLE_TTS_VERBOSITY = False
-ENABLE_TOOL_VERBOSITY = False
-ENABLE_WEBVIEW_VERBOSITY = False
+ENABLE_TOOL_VERBOSITY = True
+ENABLE_WEBVIEW_VERBOSITY = True
 
 
 
@@ -56,7 +57,7 @@ ENABLE_WEBVIEW_VERBOSITY = False
 # EXPERIMENTAL #
 ################
 AUTO_LISTEN_WITHOUT_CLOSE = False
-CONVERSATION_FILE_NAME = "chats.json"
+CONVERSATION_FOLDER = "saved_chats"
 
 
 
